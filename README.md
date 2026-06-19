@@ -2,7 +2,7 @@
 
 > Skill suite for better usage of agents ([OpenClaw](https://github.com/openclaw/openclaw), [Hermes](#), and more).
 
-A growing collection of practical, security-conscious skills for AI coding agents.
+A growing collection of practical, security-conscious skills for AI agents that makes your agent powerful and efficient.  All of them are developed by Evan Song( @songhonglei)
 
 ---
 
