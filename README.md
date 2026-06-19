@@ -10,7 +10,7 @@ A growing collection of practical, security-conscious skills for AI coding agent
 
 | Skill | Description |
 |-------|-------------|
-| [`workspace-git-setup`](skills/workspace-git-setup) | One-command Git tracking for any working directory, with a security-focused `.gitignore`, large-file guard, and read-only `--audit` mode. |
+| [`workspace-git-setup`](skills/workspace-git-setup) **v1.0.1** | | One-command Git tracking for any working directory, with a security-focused `.gitignore`, large-file guard, and read-only `--audit` mode. |
 
 More skills will be added over time.
 
