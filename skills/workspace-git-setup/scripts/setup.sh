@@ -121,7 +121,12 @@ if [[ -z "$WORKSPACE_PATH" ]]; then
   fi
 fi
 [[ -d "$WORKSPACE_PATH" ]] || err "路径不存在：$WORKSPACE_PATH"
-WORKSPACE_PATH="$(realpath "$WORKSPACE_PATH")"
+# realpath 在 macOS BSD 默认不存在；缺失时降级用 cd+pwd 兜底
+if command -v realpath &>/dev/null; then
+  WORKSPACE_PATH="$(realpath "$WORKSPACE_PATH")"
+else
+  WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
+fi
 
 # ─── 2. 推断项目名称（默认用工作区目录名）────────────────────────────────────
 if [[ -z "$PROJECT_NAME" ]]; then
@@ -236,8 +241,8 @@ fi
 
 # 手动输入兜底（dry-run 下若读不到则用占位，不交互）
 if $DRY; then
-  [[ -z "$GIT_USER" ]]  && GIT_USER="(将提示手动输入)"
-  [[ -z "$GIT_EMAIL" ]] && GIT_EMAIL="(将提示手动输入)"
+  [[ -z "$GIT_USER" ]]  && GIT_USER="(将提示手动输入；非交互场景请预设 GIT_AUTHOR_NAME)"
+  [[ -z "$GIT_EMAIL" ]] && GIT_EMAIL="(将提示手动输入；非交互场景请预设 GIT_AUTHOR_EMAIL)"
 else
   if [[ -z "$GIT_USER" ]]; then
     read -rp "$(echo -e "${YELLOW}请输入 git user.name（示例：Jane Doe）: ${NC}")" GIT_USER

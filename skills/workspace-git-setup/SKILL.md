@@ -4,7 +4,7 @@ description: "One-command Git tracking setup for any working directory, with a s
 license: MIT
 metadata:
   author: Evan Song
-  version: "1.0.2"
+  version: "1.0.3"
 ---
 
 # workspace-git-setup
@@ -14,6 +14,10 @@ One command to set up safe, sensible Git tracking for any working directory — 
 A zero-dependency Bash script that initializes Git version control for a project, ships a battle-tested security `.gitignore`, warns about large files before your first commit, and can audit an existing repo for leaked secrets and untracked files.
 
 **Pure `bash` + `git`. No Python, no npm, no third-party packages.**
+
+- **Author**: Evan Song · [github.com/Songhonglei](https://github.com/Songhonglei)
+- **Repository**: https://github.com/Songhonglei/better-agent-skills
+- **License**: MIT
 
 ## Usage
 
