@@ -1,37 +1,148 @@
 # better-agent-skills
 
-> Skill suite for better usage of agents ([OpenClaw](https://github.com/openclaw/openclaw), [Hermes](#), and more).
+> Skill suite for getting more out of your AI agent ([OpenClaw](https://github.com/openclaw/openclaw), [Hermes](#), Claude Code, Codex CLI, Cursor, Cline, and more).
 
-A growing collection of practical, security-conscious skills for AI agents that makes your agent powerful and efficient.  All of them are developed by Evan Song( @songhonglei)
+A growing, security-conscious collection of portable agent skills — from
+zero-dependency environment diagnostics to cross-tool memory transfer and
+multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 
----
-
-## Skills in this suite
-
-| Skill | Description |
-|-------|-------------|
-| [`workspace-git-setup`](skills/workspace-git-setup) **v1.0.1** | | One-command Git tracking for any working directory, with a security-focused `.gitignore`, large-file guard, and read-only `--audit` mode. |
-
-More skills will be added over time.
+[![Skills](https://img.shields.io/badge/skills-11-blue)](https://github.com/Songhonglei/better-agent-skills/tree/main/skills)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Author](https://img.shields.io/badge/author-Evan%20Song-orange)](https://github.com/Songhonglei)
 
 ---
 
-## Install a single skill
+## 🧩 Skills in this suite
 
-Each skill lives under `skills/<name>/` and is self-contained. Refer to the individual skill's `README.md` for usage.
+### 🛠️ Environment & Workspace
 
-For agents that support [ClawHub](https://clawhub.com):
+| Skill | Latest | What it does |
+|-------|--------|--------------|
+| [`hello-env`](skills/hello-env) | **v1.0.2** | Zero-dependency Bash environment health check for Linux, macOS, containers, K8s pods. Reports OS, user, Node, PVC, network, deployment context. |
+| [`workspace-git-setup`](skills/workspace-git-setup) | **v1.0.3** | One-command Git tracking with a security-focused `.gitignore` (credentials / TLS / SSH keys auto-excluded), large-file guard, and `--audit` mode. |
+| [`token-slim`](skills/token-slim) | **v1.0.0** | Guided token optimization for agent workspaces — identifies bloat, recommends slimming. |
+
+### 🧠 Agent Memory & Profile
+
+| Skill | Latest | What it does |
+|-------|--------|--------------|
+| [`claw-memory-manager`](skills/claw-memory-manager) | **v1.0.0** | One-command management of OpenClaw built-in memory features. Configure Dreaming (Light→REM→Deep auto consolidation) with tunable half-life, max-age, IANA timezone. |
+| [`copy-my-profile`](skills/copy-my-profile) | **v1.0.0** | Portable Markdown profile for AI tools — like vCard for AI assistants. Extract once from Tool A, paste into Tool B. Supports 10+ tools. |
+| [`collective-memory`](skills/collective-memory) | **v1.0.0** | Broadcast a single memory note to multiple AI agent workspaces in one shot — upserts into MEMORY.md / AGENTS.md / TOOLS.md. |
+
+### 🤖 Agent Identity & Runtime
+
+| Skill | Latest | What it does |
+|-------|--------|--------------|
+| [`agent-avatar-manager`](skills/agent-avatar-manager) | **v1.0.1** | Manage your OpenClaw Agent's avatar. Send an image/URL, or describe a style and let Freepik vector search pick. |
+| [`rename-session`](skills/rename-session) | **v1.0.0** | Rename or auto-generate a friendly label for an OpenClaw-style session. Random label generator (zh/en with locale auto-detect), multi-agent auto-detection. |
+| [`subagent-timeout-config`](skills/subagent-timeout-config) | **v1.0.0** | One-click subagent timeout configurator for OpenClaw. Configures the three related fields safely with backup, dry-run, and verify. |
+
+### 🔧 Recovery & Coordination
+
+| Skill | Latest | What it does |
+|-------|--------|--------------|
+| [`session-recovery`](skills/session-recovery) | **v1.0.1** | Recover lost agent session content and file changes from on-disk conversation logs. Streaming and OOM-safe on 700MB+ daily logs. 35x faster default search. |
+| [`agent-team-mesh`](skills/agent-team-mesh) | **v1.0.0** | Team-wide P2P mesh for OpenClaw agents running on different containers/pods. Each gateway listens on its own pod for direct WebSocket calls. |
+
+---
+
+## 📦 Install
+
+Three ways to install, pick what fits your agent:
+
+### Option 1 — ClawHub (recommended for OpenClaw users)
 
 ```bash
 clawhub install <skill-name>
+# e.g.
+clawhub install hello-env
+clawhub install claw-memory-manager
+```
+
+### Option 2 — skills.sh CLI (works for Claude Code, Cursor, Cline, Continue, OpenClaw, and 30+ other agents)
+
+```bash
+npx -y skills add Songhonglei/better-agent-skills -s <skill-name>
+# e.g.
+npx -y skills add Songhonglei/better-agent-skills -s copy-my-profile
+```
+
+### Option 3 — Direct from GitHub
+
+```bash
+# Clone the whole suite
+git clone https://github.com/Songhonglei/better-agent-skills.git
+cp -r better-agent-skills/skills/<skill-name> /path/to/your/agent/skills/
+
+# Or just one skill via curl + tar
+curl -sL https://github.com/Songhonglei/better-agent-skills/archive/refs/heads/main.tar.gz | \
+  tar -xzf - --strip-components=2 better-agent-skills-main/skills/<skill-name>
 ```
 
 ---
 
-## Author
+## 🎯 Use cases
+
+| Scenario | Try |
+|----------|-----|
+| New machine setup, want quick env diagnostic | [`hello-env`](skills/hello-env) |
+| Worried about losing workspace history | [`workspace-git-setup`](skills/workspace-git-setup) |
+| Switching from Tool A to Tool B, don't want to retrain | [`copy-my-profile`](skills/copy-my-profile) |
+| Agent runs out of context too fast | [`token-slim`](skills/token-slim) |
+| Want agent to remember things better across days | [`claw-memory-manager`](skills/claw-memory-manager) |
+| Lost conversation history after crash | [`session-recovery`](skills/session-recovery) |
+| Multiple agents need to share knowledge | [`collective-memory`](skills/collective-memory) |
+| Multiple agents need to call each other | [`agent-team-mesh`](skills/agent-team-mesh) |
+| Subagent keeps timing out | [`subagent-timeout-config`](skills/subagent-timeout-config) |
+| Want to give your agent a personalized look | [`agent-avatar-manager`](skills/agent-avatar-manager) |
+| Sessions all have terrible default names | [`rename-session`](skills/rename-session) |
+
+---
+
+## 🛡️ Quality standards
+
+Every skill in this suite follows these standards:
+
+- **Zero secret leakage** — automated scan before publish
+- **Cross-platform** — Linux + macOS + (where applicable) Windows-via-WSL/Git-Bash
+- **Locale-aware** — language defaults from `$LC_ALL` / `$LC_MESSAGES` / `$LANG`, not hardcoded
+- **Safe defaults** — auto-backup before write, `--dry-run` for high-risk ops, validate before sync
+- **Portable frontmatter** — `name + description` only, ≤1024 bytes (works on strict YAML parsers like Qoder)
+- **Real attribution** — `**Author**` / `**Repository**` / `**License**` in every SKILL.md body
+- **Single dependency budget** — pure stdlib (Python) or pure Bash where possible
+
+---
+
+## 📚 Related ecosystems
+
+- [OpenClaw](https://github.com/openclaw/openclaw) — open-source agent framework (most skills target this primarily)
+- [ClawHub](https://clawhub.com) — public skill marketplace
+- [skills.sh](https://www.skills.sh) — multi-agent skill installer (`npx skills`)
+- [Anthropic Skills spec](https://docs.anthropic.com) — the underlying SKILL.md format
+
+---
+
+## 🤝 Contributing
+
+Want to fork a skill, file an issue, or suggest improvements? Open an issue
+or PR on this repo. For new skills, start by reading any existing skill's
+`SKILL.md` to see the conventions used.
+
+---
+
+## 👤 Author
 
 **Evan Song** — [github.com/Songhonglei](https://github.com/Songhonglei)
 
-## License
+Built and maintained as part of daily AI-agent productivity work; skills are
+released here as they stabilize.
+
+## 📄 License
 
 MIT © 2026 Evan Song — see [LICENSE](LICENSE).
+
+> Note: skills published to [clawhub.com](https://clawhub.com) are subject to
+> ClawHub platform terms which release individual versions as MIT-0 (No
+> Attribution). The source-of-truth license for this repo and direct
+> GitHub/skills.sh installs is MIT (with attribution).
