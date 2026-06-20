@@ -1,0 +1,14 @@
+# Backup files created by enable/disable (let users gitignore their own backups)
+*.bak.*
+openclaw.json.bak.*
+
+# Python noise
+__pycache__/
+*.pyc
+*.pyo
+
+# Editor/OS
+.DS_Store
+Thumbs.db
+*.swp
+*~
