@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# token-slim runtime state (would be in user workspaces, never in skill repo)
+.cache/
+.token-slim/
+
+# Optional internal artifacts (defensive)
+sign.key
+.install-source.json
+__skill_meta__.json
+*.json.md
