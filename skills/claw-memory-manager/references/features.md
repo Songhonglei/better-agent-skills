@@ -52,16 +52,69 @@ openclaw memory promote --apply  # execute promotion immediately
 - After config write, a gateway restart picks up changes. This skill runs
   `openclaw gateway restart` by default; use `--no-restart` to skip.
 
-## Active Memory (reserved extension slot)
+## Active Memory (proactive memory injection)
 
 | Attribute | Value |
 |-----------|-------|
-| **What** | Proactive memory injection — agent surfaces relevant memories during conversation without explicit user request |
+| **What** | Runs a lightweight sub-agent before every turn, retrieves relevant memories, and **injects them into the context window** |
 | **Config path** | `plugins.entries.active-memory` |
-| **Status** | 🚧 Reserved in `FEATURES` dict; uncomment when needed |
+| **Restart required** | Yes — `enabled` changes require `openclaw gateway restart` (this skill handles it) |
+| **Style presets** | `conservative` / `balanced` (default) / `aggressive` |
 
-When you're ready to manage active-memory, uncomment the stub in
-`scripts/agent_memory.py` `FEATURES` dict and fill in the schema fields.
+### Style preset matrix
+
+| Style | `queryMode` | `promptStyle` | User turns × chars | Assist turns × chars | Inject cap | Timeout | Cache TTL | Thinking |
+|-------|-------------|---------------|--------------------|----------------------|------------|---------|-----------|----------|
+| `conservative` | `message` | `precision-heavy` | 1 × 120 | 0 × 100 | 150 chars | 8000 ms | 30000 ms | `off` |
+| **`balanced`** (default) | `recent` | `balanced` | 2 × 220 | 1 × 180 | 220 chars | 15000 ms | 15000 ms | `off` |
+| `aggressive` | `full` | `recall-heavy` | 4 × 500 | 2 × 400 | 500 chars | 25000 ms | 8000 ms | `minimal` |
+
+All presets share:
+
+```json
+{
+  "agents": ["*"],
+  "allowedChatTypes": ["direct"]
+}
+```
+
+### Usage
+
+```bash
+# Enable with default (balanced)
+python3 scripts/agent_memory.py enable active-memory
+
+# Pick a preset
+python3 scripts/agent_memory.py enable active-memory --style conservative
+python3 scripts/agent_memory.py enable active-memory --style aggressive
+
+# Status (auto-detects current style from queryMode)
+python3 scripts/agent_memory.py status active-memory
+
+# Disable
+python3 scripts/agent_memory.py disable active-memory
+```
+
+### Style detection
+
+`status active-memory` infers the current style by reading `queryMode`:
+
+| `queryMode` | Inferred style |
+|-------------|----------------|
+| `message` | `conservative` |
+| `recent` | `balanced` |
+| `full` | `aggressive` |
+
+This means manually-tuned fields can drift from the preset — `status` still
+reports whichever preset best matches the current `queryMode`.
+
+### When to use which preset
+
+- **Conservative**: latency-sensitive direct-chat agents, or when context
+  budget is tight (small models, high-frequency interaction)
+- **Balanced**: default for everyday development and assistant use
+- **Aggressive**: research / long-context tasks where you want maximum
+  memory recall even at the cost of latency and tokens
 
 ## Managed-environment config sync
 

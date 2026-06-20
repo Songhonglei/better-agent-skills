@@ -1,15 +1,21 @@
 # claw-memory-manager
 
 > One-command management of OpenClaw Agent's built-in memory features —
-> Dreaming consolidation today, more features coming.
+> Dreaming consolidation **and** Active Memory injection.
 
 ## Why
 
-[OpenClaw](https://docs.openclaw.ai) ships with a **Dreaming** mechanism
-that runs scheduled memory consolidation. By default it's off — and enabling
-it requires editing a 3-level nested JSON config, syncing to multiple paths
-on managed deployments, and restarting the gateway. **This skill turns that
-into one command.**
+[OpenClaw](https://docs.openclaw.ai) ships with two memory features that
+both ship **disabled** and require non-trivial config to turn on:
+
+1. **Dreaming** — scheduled memory consolidation that auto-promotes
+   high-recall signals to `MEMORY.md`
+2. **Active Memory** — sub-agent that runs before every turn and
+   **injects relevant memories into the model's context window**
+
+Without this skill, enabling either requires editing a 3-level nested JSON
+config, syncing to multiple paths on managed deployments, and restarting
+the gateway. **This skill turns each into one command.**
 
 ## What's Dreaming?
 
@@ -29,6 +35,8 @@ Deep phase   → top-scoring signals get written into MEMORY.md
 Default schedule: 03:00 daily. Default half-life: 30 days.
 
 ## Quick start
+
+### Dreaming
 
 ```bash
 # Check if your OpenClaw version supports dreaming
@@ -53,6 +61,33 @@ python3 scripts/agent_memory.py enable dreaming \
 python3 scripts/agent_memory.py disable dreaming
 ```
 
+### Active Memory
+
+```bash
+# Enable with default style (balanced)
+python3 scripts/agent_memory.py enable active-memory
+
+# Pick a style preset
+python3 scripts/agent_memory.py enable active-memory --style conservative
+python3 scripts/agent_memory.py enable active-memory --style aggressive
+
+# See current style + params
+python3 scripts/agent_memory.py status active-memory
+
+# Disable
+python3 scripts/agent_memory.py disable active-memory
+```
+
+#### Style cheatsheet
+
+| Style | When to use | Latency | Recall |
+|-------|-------------|---------|--------|
+| `conservative` | Fastest direct-chat, tight context budget | ~8 s | low |
+| **`balanced`** (default) | Everyday dev / assistant | ~15 s | medium |
+| `aggressive` | Long-context research / max-recall tasks | ~25 s | high |
+
+See `references/features.md` for the full parameter matrix.
+
 ## Safety by default
 
 | Layer | Behavior |
@@ -66,10 +101,10 @@ python3 scripts/agent_memory.py disable dreaming
 
 ## Supported features
 
-| Feature | Status |
-|---------|--------|
-| `dreaming` (memory consolidation) | ✅ Production |
-| `active-memory` (proactive injection) | 🚧 Reserved extension slot |
+| Feature | Status | Style/preset support |
+|---------|--------|----------------------|
+| `dreaming` (memory consolidation) | ✅ Production | `--half-life` / `--max-age` / `--timezone` |
+| `active-memory` (proactive injection) | ✅ Production (v1.1.0+) | `--style conservative\|balanced\|aggressive` |
 
 To add a new feature, see the "Extending" section in
 `references/features.md`.

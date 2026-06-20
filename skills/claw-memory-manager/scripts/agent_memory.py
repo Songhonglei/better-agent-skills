@@ -4,20 +4,25 @@ claw-memory-manager: OpenClaw Agent memory feature manager.
 
 Supports: check / enable / disable / status
 Features:
-  - dreaming  : Light→REM→Deep memory consolidation (auto-promote high-recall
-                signals to long-term MEMORY.md)
-  - (extensible) future features like active-memory can be added to the
-    FEATURES dict below
+  - dreaming      : Light→REM→Deep memory consolidation (auto-promote
+                    high-recall signals to long-term MEMORY.md)
+  - active-memory : Proactive memory injection — runs a lightweight sub-agent
+                    before every turn to retrieve & inject relevant memories
+                    into the context window. Three style presets:
+                    conservative / balanced / aggressive.
 
 Usage:
   python3 agent_memory.py status dreaming
+  python3 agent_memory.py status active-memory
   python3 agent_memory.py check dreaming
   python3 agent_memory.py enable dreaming
   python3 agent_memory.py enable dreaming --half-life 30 --max-age 60
   python3 agent_memory.py enable dreaming --timezone America/New_York
+  python3 agent_memory.py enable active-memory                    # default: balanced
+  python3 agent_memory.py enable active-memory --style conservative
+  python3 agent_memory.py enable active-memory --style aggressive
   python3 agent_memory.py enable dreaming --dry-run
-  python3 agent_memory.py enable dreaming --backup
-  python3 agent_memory.py disable dreaming
+  python3 agent_memory.py disable active-memory
 
 Safe defaults:
   - Backup: create *.bak.<timestamp> before any write (use --no-backup to skip)
@@ -63,6 +68,81 @@ MAX_ALLOWED_AGE_DAYS = 90
 DEFAULT_TIMEZONE = "UTC"  # International default; override with --timezone
 
 
+# ----- active-memory style presets -----
+ACTIVE_MEMORY_STYLES = {
+    "conservative": {
+        "label": "Conservative",
+        "description": "Minimal context window, fastest, precision-focused",
+        "config": {
+            "agents": ["*"],
+            "allowedChatTypes": ["direct"],
+            "queryMode": "message",
+            "promptStyle": "precision-heavy",
+            "recentUserTurns": 1,
+            "recentAssistantTurns": 0,
+            "recentUserChars": 120,
+            "recentAssistantChars": 100,
+            "maxSummaryChars": 150,
+            "timeoutMs": 8000,
+            "cacheTtlMs": 30000,
+            "thinking": "off",
+        },
+    },
+    "balanced": {
+        "label": "Balanced",
+        "description": "Default — recent context, moderate injection size",
+        "config": {
+            "agents": ["*"],
+            "allowedChatTypes": ["direct"],
+            "queryMode": "recent",
+            "promptStyle": "balanced",
+            "recentUserTurns": 2,
+            "recentAssistantTurns": 1,
+            "recentUserChars": 220,
+            "recentAssistantChars": 180,
+            "maxSummaryChars": 220,
+            "timeoutMs": 15000,
+            "cacheTtlMs": 15000,
+            "thinking": "off",
+        },
+    },
+    "aggressive": {
+        "label": "Aggressive",
+        "description": "Large context, recall-heavy, light thinking for best recall",
+        "config": {
+            "agents": ["*"],
+            "allowedChatTypes": ["direct"],
+            "queryMode": "full",
+            "promptStyle": "recall-heavy",
+            "recentUserTurns": 4,
+            "recentAssistantTurns": 2,
+            "recentUserChars": 500,
+            "recentAssistantChars": 400,
+            "maxSummaryChars": 500,
+            "timeoutMs": 25000,
+            "cacheTtlMs": 8000,
+            "thinking": "minimal",
+        },
+    },
+}
+DEFAULT_ACTIVE_MEMORY_STYLE = "balanced"
+
+
+def detect_active_memory_style(config: dict) -> str:
+    """Infer current active-memory style from config (uses queryMode as primary key)."""
+    qm = config.get("queryMode", "recent")
+    if qm == "message":
+        return "conservative"
+    if qm == "full":
+        return "aggressive"
+    return "balanced"
+
+
+def _build_active_memory_enable_patch(style: str) -> dict:
+    """Build the {enabled: true, config: {...}} patch for the chosen style."""
+    return {"enabled": True, "config": ACTIVE_MEMORY_STYLES[style]["config"]}
+
+
 # ----- Feature registry -----
 FEATURES = {
     "dreaming": {
@@ -82,15 +162,19 @@ FEATURES = {
         "supports_half_life": True,
         "supports_max_age": True,
     },
-    # Reserved slot for future active-memory feature; uncomment when ready:
-    # "active-memory": {
-    #     "path": ["plugins", "entries", "active-memory", "config"],
-    #     "enable_patch": {"enabled": True},
-    #     "disable_patch": {"enabled": False},
-    #     "check_key": "enabled",
-    #     "status_key": None,
-    #     "description": "Proactive memory injection into agent context window",
-    # },
+    "active-memory": {
+        "path": ["plugins", "entries", "active-memory"],
+        "enable_patch": None,   # dynamically built from --style; see cmd_enable
+        "disable_patch": {"enabled": False},
+        "check_key": "enabled",
+        "status_key": None,
+        "description": (
+            "Proactive memory injection — runs a lightweight sub-agent before "
+            "each turn to retrieve and inject relevant memories into context "
+            f"(three styles: {' / '.join(ACTIVE_MEMORY_STYLES.keys())})"
+        ),
+        "supports_style": True,
+    },
 }
 
 
@@ -222,6 +306,29 @@ def cmd_status(feature_name: str) -> None:
             ma = deep.get("maxAgeDays", DEFAULT_MAX_AGE_DAYS) if deep else DEFAULT_MAX_AGE_DAYS
             print(f"   Half-life:   {hl} days (--half-life 1-{MAX_HALF_LIFE_DAYS})")
             print(f"   Max-age:     {ma} days (--max-age 1-{MAX_ALLOWED_AGE_DAYS})")
+        elif feature_name == "active-memory":
+            raw_config = current.get("config", {})
+            detected_style = detect_active_memory_style(raw_config)
+            style_label = ACTIVE_MEMORY_STYLES[detected_style]["label"]
+            styles_hint = " / ".join(ACTIVE_MEMORY_STYLES.keys())
+            if enabled:
+                print(f"   Style:       {style_label} ({detected_style})")
+                print(f"   queryMode:   {raw_config.get('queryMode', '(unset, default recent)')}")
+                print(f"   promptStyle: {raw_config.get('promptStyle', '(unset, default balanced)')}")
+                ru = raw_config.get('recentUserTurns', 2)
+                ra = raw_config.get('recentAssistantTurns', 1)
+                ruc = raw_config.get('recentUserChars', 220)
+                rac = raw_config.get('recentAssistantChars', 180)
+                print(f"   Context window: user {ru} turns × {ruc} chars / assistant {ra} turns × {rac} chars")
+                print(f"   Inject cap:  {raw_config.get('maxSummaryChars', 220)} chars")
+                print(f"   Timeout:     {raw_config.get('timeoutMs', 15000)} ms")
+                print(f"   Cache TTL:   {raw_config.get('cacheTtlMs', 15000)} ms")
+                print(f"   Thinking:    {raw_config.get('thinking', 'off')}")
+                print(f"   Chat types:  {raw_config.get('allowedChatTypes', ['direct'])}")
+            else:
+                if raw_config:
+                    print(f"   Last style:  {style_label} ({detected_style}) (informational only — disabled now)")
+            print(f"   Switch:      enable active-memory --style <{styles_hint}>")
         print(f"   Full config: {json.dumps(current, ensure_ascii=False)}")
 
 
@@ -247,7 +354,10 @@ def cmd_check(feature_name: str) -> None:
     current = get_nested(cfg, feat["path"])
     enabled = current.get("enabled", False) if current else False
     print(f"   Current state:    {'enabled' if enabled else 'not enabled'}")
-    print(f"\n   To enable: python3 agent_memory.py enable {feature_name}")
+    extra_hint = ""
+    if feat.get("supports_style"):
+        extra_hint = f" [--style {' | '.join(ACTIVE_MEMORY_STYLES.keys())}]"
+    print(f"\n   To enable: python3 agent_memory.py enable {feature_name}{extra_hint}")
 
 
 def cmd_enable(
@@ -255,6 +365,7 @@ def cmd_enable(
     half_life_days: int | None = None,
     max_age_days: int | None = None,
     timezone: str = DEFAULT_TIMEZONE,
+    style: str | None = None,
     dry_run: bool = False,
     backup: bool = True,
     restart: bool = True,
@@ -280,7 +391,26 @@ def cmd_enable(
             print(f"❌ --max-age must be 1-{MAX_ALLOWED_AGE_DAYS} days, got: {max_age_days}")
             sys.exit(1)
 
-    print(f"\n🔧 Enabling {feature_name}{' [DRY-RUN]' if dry_run else ''}...")
+    # Validate active-memory-specific args
+    if style is not None:
+        if not feat.get("supports_style"):
+            print(f"⚠️  --style not supported for {feature_name}; ignored")
+            style = None
+        elif style not in ACTIVE_MEMORY_STYLES:
+            valid = ", ".join(ACTIVE_MEMORY_STYLES.keys())
+            print(f"❌ --style invalid value '{style}'; valid: {valid}")
+            sys.exit(1)
+
+    # active-memory: dynamically build enable_patch (resolved_style shared across function)
+    resolved_style = None
+    if feature_name == "active-memory":
+        resolved_style = style if style is not None else DEFAULT_ACTIVE_MEMORY_STYLE
+        style_label = ACTIVE_MEMORY_STYLES[resolved_style]["label"]
+        # Replace only enable_patch; other fields (path/disable_patch) keep original
+        feat = {**feat, "enable_patch": _build_active_memory_enable_patch(resolved_style)}
+        print(f"\n🔧 Enabling active-memory ({style_label} / {resolved_style}){' [DRY-RUN]' if dry_run else ''}...")
+    else:
+        print(f"\n🔧 Enabling {feature_name}{' [DRY-RUN]' if dry_run else ''}...")
 
     cfg = load_config(RUNTIME_CONFIG)
 
@@ -301,6 +431,14 @@ def cmd_enable(
         print(f"   Half-life:  {hl} days{' (default)' if half_life_days is None else ''}")
         print(f"   Max-age:    {ma} days{' (default)' if max_age_days is None else ''}")
         print(f"   Timezone:   {timezone}")
+    elif feature_name == "active-memory":
+        sc = ACTIVE_MEMORY_STYLES[resolved_style]["config"]
+        print(f"   queryMode:      {sc['queryMode']}")
+        print(f"   promptStyle:    {sc['promptStyle']}")
+        print(f"   Context window: user {sc['recentUserTurns']} turns × {sc['recentUserChars']} chars / assistant {sc['recentAssistantTurns']} turns × {sc['recentAssistantChars']} chars")
+        print(f"   Inject cap:     {sc['maxSummaryChars']} chars")
+        print(f"   Timeout:        {sc['timeoutMs']} ms")
+        print(f"   Thinking:       {sc['thinking']}")
 
     if dry_run:
         print("\n📋 [DRY-RUN] Would write:")
@@ -344,6 +482,9 @@ def cmd_enable(
         print(f"\n✅ {feature_name} successfully enabled")
         if feat.get("status_key") and feat["status_key"] in current:
             print(f"   Schedule: {current[feat['status_key']]}")
+        if feature_name == "active-memory":
+            print(f"   Style:    {ACTIVE_MEMORY_STYLES[resolved_style]['label']} ({resolved_style})")
+            print(f"   Note:     active-memory needs gateway restart to take effect")
     else:
         print(f"\n❌ Verification failed; please inspect config manually")
         sys.exit(1)
@@ -404,6 +545,8 @@ def main() -> None:
                         help=f"Signal max-age days (dreaming only, 1-{MAX_ALLOWED_AGE_DAYS})")
     parser.add_argument("--timezone", type=str, default=DEFAULT_TIMEZONE,
                         help=f"IANA timezone for dreaming schedule (default: {DEFAULT_TIMEZONE}; e.g. America/New_York, Asia/Tokyo)")
+    parser.add_argument("--style", type=str, choices=list(ACTIVE_MEMORY_STYLES.keys()),
+                        help=f"Style preset (active-memory only, default: {DEFAULT_ACTIVE_MEMORY_STYLE})")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print planned changes without writing")
     parser.add_argument("--no-backup", action="store_true",
@@ -418,6 +561,7 @@ def main() -> None:
             half_life_days=args.half_life,
             max_age_days=args.max_age,
             timezone=args.timezone,
+            style=args.style,
             dry_run=args.dry_run,
             backup=not args.no_backup,
             restart=not args.no_restart,
