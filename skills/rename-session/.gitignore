@@ -1,0 +1,40 @@
+# Generic .gitignore for open-source skill
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build / dist
+build/
+dist/
+*.tar.gz
+*.zip
+
+# Secrets (never commit)
+*.key
+*.pem
+.env
+.env.*
+.secrets/
+
+# Test artifacts
+/tmp/
+.cache/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
