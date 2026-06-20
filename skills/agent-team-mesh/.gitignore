@@ -1,0 +1,18 @@
+# Secrets — NEVER commit
+tokens.json
+*-tokens.json
+.secrets/
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Defensive: internal artifacts
+sign.key
+.install-source.json
+__skill_meta__.json
+*.json.md
