@@ -42,6 +42,11 @@ from _common import (
 )
 
 
+# Per-file size cap. Files bigger than this are skipped to bound worst-case
+# scan latency (one 1GB session.bak.jsonl can dominate total time).
+OVERSIZED_BYTES = 64 * 1024 * 1024
+
+
 def parse_args():
     p = argparse.ArgumentParser(
         description="Search historical agent session content (OpenClaw).",
@@ -142,13 +147,39 @@ def search_jsonl(agent, agent_dir, keywords, start, end, limit,
         if budget["scanned"] >= max_files:
             budget["hit_limit"] = True
             break
-        if ".reset." in jf.name:
+        # Skip rotated / backup files. These are not live sessions and can be
+        # huge (we've seen 1GB+ session.bak.jsonl files that dominate scan time).
+        # A user who really wants them in scope can rename them.
+        name = jf.name
+        if (".reset." in name or ".bak." in name or
+                name.endswith(".bak") or name.endswith(".bak.jsonl") or
+                name.startswith("session.bak")):
             continue
         mtime = datetime.fromtimestamp(jf.stat().st_mtime, tz=timezone.utc)
-        # mtime 粗筛：内容时间模式下放宽窗口（文件可能跨天），否则严格按 mtime
+        # mtime coarse filter: when by_content_time is on, the window is just
+        # a hint (a session can be modified hours after its content), so we
+        # rely on content-time filter below; otherwise enforce strict mtime.
         if not by_content_time and not in_window(mtime, start, end):
             continue
-        # 字节级粗筛，命中才精解析
+        # Soft cap on single-file size to keep worst-case latency bounded.
+        # Anything bigger than 64MB is almost certainly a rotated/backup or
+        # a runaway session. Record and report in the final summary, do NOT
+        # spam stderr mid-scan (one warning per file gets lost in long output).
+        try:
+            fsize = jf.stat().st_size
+        except OSError:
+            continue
+        if fsize > OVERSIZED_BYTES:
+            budget["oversized"].append({
+                "path": str(jf),
+                "name": jf.name,
+                "size_bytes": fsize,
+                "size_mb": fsize // (1024 * 1024),
+                "mtime": fmt(mtime),
+                "agent": agent,
+            })
+            continue
+        # byte-level coarse filter before full parse
         if not file_contains_bytes(jf, needles):
             continue
         budget["scanned"] += 1
@@ -221,6 +252,24 @@ def print_human(all_results, keywords, notes, budget):
     if budget.get("hit_limit"):
         print(f"  WARN: scan limit reached ({budget['scanned']} files, --max-files). May have missed results.")
         print("        Narrow time range (--date / smaller --days) or raise --max-files.\n")
+
+    # Oversized-file report (collected during scan; printed once at the end so
+    # users can see exactly which files were skipped without scrolling).
+    oversized = budget.get("oversized", [])
+    if oversized:
+        threshold_mb = OVERSIZED_BYTES // (1024 * 1024)
+        total_skipped_mb = sum(o["size_mb"] for o in oversized)
+        plural = "files" if len(oversized) > 1 else "file"
+        print(f"  WARN: skipped {len(oversized)} oversized {plural} (>{threshold_mb}MB), "
+              f"totaling {total_skipped_mb}MB:")
+        for o in sorted(oversized, key=lambda x: -x["size_bytes"]):
+            print(f"     - {o['size_mb']:>5}MB  [{o['agent']}]  {o['name']}")
+            print(f"              path:  {o['path']}")
+            print(f"              mtime: {o['mtime']}")
+        print("        These are likely rotated backups (.bak / .reset) or runaway sessions.")
+        print(f"        If you really need to search them, raise the threshold by editing")
+        print(f"        OVERSIZED_BYTES in scripts/search.py.\n")
+
     if not all_results:
         print("  No matches found. Suggestions:")
         print("    1. Broader keywords")
@@ -259,7 +308,7 @@ def main():
              f"  |  agents: {', '.join(agents)}"
              f"  |  filter: {'content-time' if args.by_content_time else 'file-mtime'}"]
 
-    budget = {"scanned": 0, "hit_limit": False}
+    budget = {"scanned": 0, "hit_limit": False, "oversized": []}
     all_results = []
     qmd_missing_agents = []
     for agent in agents:
@@ -285,6 +334,8 @@ def main():
             "data_root": str(agents_root),
             "window": {"start": start.isoformat(), "end": end.isoformat()},
             "scanned_files": budget["scanned"], "hit_scan_limit": budget["hit_limit"],
+            "skipped_oversized": budget.get("oversized", []),
+            "oversized_threshold_mb": OVERSIZED_BYTES // (1024 * 1024),
             "qmd_missing": qmd_missing_agents,
             "results": all_results,
         }, ensure_ascii=False, indent=2))
