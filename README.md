@@ -14,35 +14,37 @@ multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 
 ## 🧩 Skills in this suite
 
-### 🛠️ Environment & Workspace
+> Categorization follows the [Better Agent canonical taxonomy](https://docs.xiaohongshu.com/doc/9017796903be34f1c9c1eb64163a78aa) — Agent Memory & Boot / Agent Identity & Profile / Workspace & Session / Cross-container Coordination.
+
+### 🧠 Agent Memory & Boot
 
 | Skill | Latest | What it does |
 |-------|--------|--------------|
-| [`hello-env`](skills/hello-env) | **v1.0.2** | Zero-dependency Bash environment health check for Linux, macOS, containers, K8s pods. Reports OS, user, Node, PVC, network, deployment context. |
-| [`workspace-git-setup`](skills/workspace-git-setup) | **v1.0.3** | One-command Git tracking with a security-focused `.gitignore` (credentials / TLS / SSH keys auto-excluded), large-file guard, and `--audit` mode. |
-| [`token-slim`](skills/token-slim) | **v1.0.0** | Guided token optimization for agent workspaces — identifies bloat, recommends slimming. |
-
-### 🧠 Agent Memory & Profile
-
-| Skill | Latest | What it does |
-|-------|--------|--------------|
+| [`subagent-timeout-config`](skills/subagent-timeout-config) | **v1.0.0** | One-click subagent timeout configurator for OpenClaw with preset profiles. |
 | [`claw-memory-manager`](skills/claw-memory-manager) | **v1.0.0** | One-command management of OpenClaw built-in memory features. Configure Dreaming (Light→REM→Deep auto consolidation) with tunable half-life, max-age, IANA timezone. |
+
+### 🪪 Agent Identity & Profile
+
+| Skill | Latest | What it does |
+|-------|--------|--------------|
 | [`copy-my-profile`](skills/copy-my-profile) | **v1.0.0** | Portable Markdown profile for AI tools — like vCard for AI assistants. Extract once from Tool A, paste into Tool B. Supports 10+ tools. |
+| [`agent-avatar-manager`](skills/agent-avatar-manager) | **v1.0.1** | Manage your OpenClaw Agent's avatar. Send an image/URL, or describe a style and let Freepik vector search pick. |
+| [`rename-session`](skills/rename-session) | **v1.0.0** | Rename or auto-generate a friendly session label. Random label generator (zh/en with locale auto-detect), multi-agent auto-detection. |
+
+### 🗃️ Workspace & Session
+
+| Skill | Latest | What it does |
+|-------|--------|--------------|
+| [`workspace-git-setup`](skills/workspace-git-setup) | **v1.0.3** | One-command Git tracking with a security-focused `.gitignore` (credentials / TLS / SSH keys auto-excluded), large-file guard, and `--audit` mode. |
+| [`session-recovery`](skills/session-recovery) | **v1.0.1** | Recover lost agent session content and file changes from on-disk conversation logs. Streaming and OOM-safe on 700MB+ daily logs. |
+| [`token-slim`](skills/token-slim) | **v1.0.0** | Guided token optimization for agent workspaces — identifies bloat, recommends slimming, supports beast mode. |
+| [`hello-env`](skills/hello-env) | **v1.0.2** | Zero-dependency Bash environment health check for Linux, macOS, containers, K8s pods. |
 | [`collective-memory`](skills/collective-memory) | **v1.0.0** | Broadcast a single memory note to multiple AI agent workspaces in one shot — upserts into MEMORY.md / AGENTS.md / TOOLS.md. |
 
-### 🤖 Agent Identity & Runtime
+### 🌐 Cross-container Coordination
 
 | Skill | Latest | What it does |
 |-------|--------|--------------|
-| [`agent-avatar-manager`](skills/agent-avatar-manager) | **v1.0.1** | Manage your OpenClaw Agent's avatar. Send an image/URL, or describe a style and let Freepik vector search pick. |
-| [`rename-session`](skills/rename-session) | **v1.0.0** | Rename or auto-generate a friendly label for an OpenClaw-style session. Random label generator (zh/en with locale auto-detect), multi-agent auto-detection. |
-| [`subagent-timeout-config`](skills/subagent-timeout-config) | **v1.0.0** | One-click subagent timeout configurator for OpenClaw. Configures the three related fields safely with backup, dry-run, and verify. |
-
-### 🔧 Recovery & Coordination
-
-| Skill | Latest | What it does |
-|-------|--------|--------------|
-| [`session-recovery`](skills/session-recovery) | **v1.0.1** | Recover lost agent session content and file changes from on-disk conversation logs. Streaming and OOM-safe on 700MB+ daily logs. 35x faster default search. |
 | [`agent-team-mesh`](skills/agent-team-mesh) | **v1.0.0** | Team-wide P2P mesh for OpenClaw agents running on different containers/pods. Each gateway listens on its own pod for direct WebSocket calls. |
 
 ---
@@ -141,8 +143,3 @@ released here as they stabilize.
 ## 📄 License
 
 MIT © 2026 Evan Song — see [LICENSE](LICENSE).
-
-> Note: skills published to [clawhub.com](https://clawhub.com) are subject to
-> ClawHub platform terms which release individual versions as MIT-0 (No
-> Attribution). The source-of-truth license for this repo and direct
-> GitHub/skills.sh installs is MIT (with attribution).
