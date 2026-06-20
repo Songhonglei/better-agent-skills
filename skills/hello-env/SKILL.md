@@ -1,23 +1,33 @@
 ---
 name: hello-env
-description: "Universal dev-environment health check for Linux/macOS hosts, containers, and K8s pods. Pure bash, zero dependencies. Reports OS, current user, Node.js (path + version), Python3, basic tools (git/curl/jq/docker), network (hostname/IP/inferred private subnet), container/K8s detection (configurable env-var probe; defaults to KUBERNETES_SERVICE_HOST + K8S_NAMESPACE), workdir & git status, optional config-file check, and PVC remount detection (device-number + watch-dir count snapshot diff to detect K8s PersistentVolume reattach silently rotating to a fresh disk). Three layers of config: CLI flags > env vars > sensible defaults. Trigger when user says any of: 'check my env', 'environment check', 'hello-env', 'system info', 'is my environment ok', 'what's my IP', 'what env am I in', 'has my PVC been remounted', 'detect K8s pod', 'basic tools check', 'node version', 'who am I' — or 「检查我的环境」「环境自检」「hello-env」「查看系统信息」「环境有没有问题」「IP 是多少」「在什么环境」「PVC 换卷了吗」「基础工具检查」「node 版本」「当前用户是谁」 — or any phrasing expressing the intent to verify a dev environment is healthy / detect container/K8s context / catch silent PVC rotation."
-license: MIT
-metadata:
-  author: Evan Song
-  version: "1.0.1"
+description: >
+  Zero-dependency Bash environment health check for Linux, macOS, containers,
+  and K8s pods. Reports OS, current user, Node.js, Python3, basic tools
+  (git/curl/jq/make/docker) with paths and versions, network (hostname, IP,
+  inferred subnet), container/K8s detection with a configurable env-var probe,
+  workdir and git status, optional config-file check, and PVC remount detection
+  (device-number plus watch-dir count snapshot diff to catch silent K8s
+  PersistentVolume reattach to a fresh disk). Three-layer config — CLI flags
+  override env vars override defaults. Trigger when user wants to check the
+  environment, verify a dev box is healthy, detect container or K8s context,
+  look up local IP or subnet, see Node and Python versions, list installed
+  basic tools, or watch for silent PVC rotation in K8s pods. Also triggers on
+  检查我的环境, 环境自检, hello-env, 查看系统信息, 环境有没有问题, IP 是多少,
+  在什么环境, PVC 换卷了吗, 基础工具检查, node 版本, 当前用户是谁.
 ---
 
 # hello-env
+
+- **Version**: 1.0.2
+- **License**: MIT
+- **Author**: Evan Song · [github.com/Songhonglei](https://github.com/Songhonglei)
+- **Repository**: https://github.com/Songhonglei/better-agent-skills
 
 > A zero-dependency Bash health check for any dev environment — host, container, or K8s pod.
 >
 > 一个零依赖的开源环境自检脚本，适用于本地、容器、K8s Pod 环境。
 
 Pure `bash`. No Python, no npm, no third-party packages. Works on macOS, Linux, and inside containers.
-
-- **Author**: Evan Song · [github.com/Songhonglei](https://github.com/Songhonglei)
-- **Repository**: https://github.com/Songhonglei/better-agent-skills
-- **License**: MIT
 
 ## Compatibility
 
