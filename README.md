@@ -21,7 +21,7 @@ multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 | Skill | Latest | What it does |
 |-------|--------|--------------|
 | [`subagent‑timeout‑config`](skills/subagent-timeout-config) | **v1.0.0** | One-click subagent timeout configurator for OpenClaw with preset profiles. |
-| [`claw‑memory‑manager`](skills/claw-memory-manager) | **v1.0.0** | One-command management of OpenClaw built-in memory features. Configure Dreaming (Light→REM→Deep auto consolidation) with tunable half-life, max-age, IANA timezone. |
+| [`claw‑memory‑manager`](skills/claw-memory-manager) | **v1.1.0** | One-command management of OpenClaw built-in memory features. Configure Dreaming (Light→REM→Deep auto consolidation) with tunable half-life, max-age, IANA timezone. |
 
 ### 🪪 Agent Identity & Profile
 
