@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Test artifacts (smoketest should run in workspace/output, not in skill dir)
+*.bak.*
+fake-*.json
+
+# Defensive: internal artifacts
+sign.key
+.install-source.json
+__skill_meta__.json
+*.json.md
