@@ -20,32 +20,32 @@ multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 
 | Skill | Latest | What it does |
 |-------|--------|--------------|
-| [`subagent-timeout-config`](skills/subagent-timeout-config) | **v1.0.0** | One-click subagent timeout configurator for OpenClaw with preset profiles. |
-| [`claw-memory-manager`](skills/claw-memory-manager) | **v1.0.0** | One-command management of OpenClaw built-in memory features. Configure Dreaming (Light→REM→Deep auto consolidation) with tunable half-life, max-age, IANA timezone. |
+| [`subagent‑timeout‑config`](skills/subagent-timeout-config) | **v1.0.0** | One-click subagent timeout configurator for OpenClaw with preset profiles. |
+| [`claw‑memory‑manager`](skills/claw-memory-manager) | **v1.0.0** | One-command management of OpenClaw built-in memory features. Configure Dreaming (Light→REM→Deep auto consolidation) with tunable half-life, max-age, IANA timezone. |
 
 ### 🪪 Agent Identity & Profile
 
 | Skill | Latest | What it does |
 |-------|--------|--------------|
-| [`copy-my-profile`](skills/copy-my-profile) | **v1.0.0** | Portable Markdown profile for AI tools — like vCard for AI assistants. Extract once from Tool A, paste into Tool B. Supports 10+ tools. |
-| [`agent-avatar-manager`](skills/agent-avatar-manager) | **v1.0.1** | Manage your OpenClaw Agent's avatar. Send an image/URL, or describe a style and let Freepik vector search pick. |
-| [`rename-session`](skills/rename-session) | **v1.0.0** | Rename or auto-generate a friendly session label. Random label generator (zh/en with locale auto-detect), multi-agent auto-detection. |
+| [`copy‑my‑profile`](skills/copy-my-profile) | **v1.0.0** | Portable Markdown profile for AI tools — like vCard for AI assistants. Extract once from Tool A, paste into Tool B. Supports 10+ tools. |
+| [`agent‑avatar‑manager`](skills/agent-avatar-manager) | **v1.0.1** | Manage your OpenClaw Agent's avatar. Send an image/URL, or describe a style and let Freepik vector search pick. |
+| [`rename‑session`](skills/rename-session) | **v1.0.0** | Rename or auto-generate a friendly session label. Random label generator (zh/en with locale auto-detect), multi-agent auto-detection. |
 
 ### 🗃️ Workspace & Session
 
 | Skill | Latest | What it does |
 |-------|--------|--------------|
-| [`workspace-git-setup`](skills/workspace-git-setup) | **v1.0.3** | One-command Git tracking with a security-focused `.gitignore` (credentials / TLS / SSH keys auto-excluded), large-file guard, and `--audit` mode. |
-| [`session-recovery`](skills/session-recovery) | **v1.0.1** | Recover lost agent session content and file changes from on-disk conversation logs. Streaming and OOM-safe on 700MB+ daily logs. |
-| [`token-slim`](skills/token-slim) | **v1.0.0** | Guided token optimization for agent workspaces — identifies bloat, recommends slimming, supports beast mode. |
-| [`hello-env`](skills/hello-env) | **v1.0.2** | Zero-dependency Bash environment health check for Linux, macOS, containers, K8s pods. |
-| [`collective-memory`](skills/collective-memory) | **v1.0.0** | Broadcast a single memory note to multiple AI agent workspaces in one shot — upserts into MEMORY.md / AGENTS.md / TOOLS.md. |
+| [`workspace‑git‑setup`](skills/workspace-git-setup) | **v1.0.3** | One-command Git tracking with a security-focused `.gitignore` (credentials / TLS / SSH keys auto-excluded), large-file guard, and `--audit` mode. |
+| [`session‑recovery`](skills/session-recovery) | **v1.0.1** | Recover lost agent session content and file changes from on-disk conversation logs. Streaming and OOM-safe on 700MB+ daily logs. |
+| [`token‑slim`](skills/token-slim) | **v1.0.0** | Guided token optimization for agent workspaces — identifies bloat, recommends slimming, supports beast mode. |
+| [`hello‑env`](skills/hello-env) | **v1.0.2** | Zero-dependency Bash environment health check for Linux, macOS, containers, K8s pods. |
+| [`collective‑memory`](skills/collective-memory) | **v1.0.0** | Broadcast a single memory note to multiple AI agent workspaces in one shot — upserts into MEMORY.md / AGENTS.md / TOOLS.md. |
 
 ### 🌐 Cross-container Coordination
 
 | Skill | Latest | What it does |
 |-------|--------|--------------|
-| [`agent-team-mesh`](skills/agent-team-mesh) | **v1.0.0** | Team-wide P2P mesh for OpenClaw agents running on different containers/pods. Each gateway listens on its own pod for direct WebSocket calls. |
+| [`agent‑team‑mesh`](skills/agent-team-mesh) | **v1.0.0** | Team-wide P2P mesh for OpenClaw agents running on different containers/pods. Each gateway listens on its own pod for direct WebSocket calls. |
 
 ---
 
@@ -88,17 +88,17 @@ curl -sL https://github.com/Songhonglei/better-agent-skills/archive/refs/heads/m
 
 | Scenario | Try |
 |----------|-----|
-| New machine setup, want quick env diagnostic | [`hello-env`](skills/hello-env) |
-| Worried about losing workspace history | [`workspace-git-setup`](skills/workspace-git-setup) |
-| Switching from Tool A to Tool B, don't want to retrain | [`copy-my-profile`](skills/copy-my-profile) |
-| Agent runs out of context too fast | [`token-slim`](skills/token-slim) |
-| Want agent to remember things better across days | [`claw-memory-manager`](skills/claw-memory-manager) |
-| Lost conversation history after crash | [`session-recovery`](skills/session-recovery) |
-| Multiple agents need to share knowledge | [`collective-memory`](skills/collective-memory) |
-| Multiple agents need to call each other | [`agent-team-mesh`](skills/agent-team-mesh) |
-| Subagent keeps timing out | [`subagent-timeout-config`](skills/subagent-timeout-config) |
-| Want to give your agent a personalized look | [`agent-avatar-manager`](skills/agent-avatar-manager) |
-| Sessions all have terrible default names | [`rename-session`](skills/rename-session) |
+| New machine setup, want quick env diagnostic | [`hello‑env`](skills/hello-env) |
+| Worried about losing workspace history | [`workspace‑git‑setup`](skills/workspace-git-setup) |
+| Switching from Tool A to Tool B, don't want to retrain | [`copy‑my‑profile`](skills/copy-my-profile) |
+| Agent runs out of context too fast | [`token‑slim`](skills/token-slim) |
+| Want agent to remember things better across days | [`claw‑memory‑manager`](skills/claw-memory-manager) |
+| Lost conversation history after crash | [`session‑recovery`](skills/session-recovery) |
+| Multiple agents need to share knowledge | [`collective‑memory`](skills/collective-memory) |
+| Multiple agents need to call each other | [`agent‑team‑mesh`](skills/agent-team-mesh) |
+| Subagent keeps timing out | [`subagent‑timeout‑config`](skills/subagent-timeout-config) |
+| Want to give your agent a personalized look | [`agent‑avatar‑manager`](skills/agent-avatar-manager) |
+| Sessions all have terrible default names | [`rename‑session`](skills/rename-session) |
 
 ---
 
