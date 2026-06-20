@@ -1,0 +1,8 @@
+# Generated output (let users gitignore their own profiles)
+my-profile.md
+
+# Editor/OS noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
