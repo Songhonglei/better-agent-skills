@@ -8,6 +8,20 @@
 
 Pure `bash`. No Python, no npm, no third-party packages. Works on macOS, Linux, and inside containers.
 
+### Compatibility matrix
+
+| Platform | Status |
+|---|---|
+| Linux (any distro) | ✅ Full |
+| macOS (bash 3.2.57+ default) | ✅ Full |
+| Windows WSL / WSL2 | ✅ Full |
+| Windows Git Bash / MSYS / Cygwin | ⚠️ Partial (cgroup detection + PVC monitor skipped — Linux-only kernel) |
+| Windows PowerShell / cmd | ❌ Not supported by design |
+
+| Agent platform | Status |
+|---|---|
+| Claude Code, Codex, OpenClaw, Cursor, Cline | ✅ Standard SKILL.md format, drops in |
+
 ---
 
 ## English

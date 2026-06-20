@@ -128,7 +128,8 @@ probe_container_env() {
     CONTAINER_HIT_REASON="/.dockerenv exists"
     return 0
   fi
-  if [ -f /proc/1/cgroup ] && grep -qE 'docker|kubepods|containerd' /proc/1/cgroup 2>/dev/null; then
+  # /proc/1/cgroup is Linux-only; skip on macOS / Windows
+  if [ "$IS_WINDOWS" = "0" ] && [ "$OS_TYPE" = "Linux" ] && [ -f /proc/1/cgroup ] && grep -qE 'docker|kubepods|containerd' /proc/1/cgroup 2>/dev/null; then
     CONTAINER_HIT_REASON="/proc/1/cgroup matches container pattern"
     return 0
   fi
@@ -144,6 +145,7 @@ echo "════════════════════════�
 echo ""
 echo "[OS]"
 OS_TYPE="$(uname -s)"
+IS_WINDOWS=0
 case "$OS_TYPE" in
   Darwin)
     OS_VER="$(sw_vers -productVersion 2>/dev/null || echo 'unknown')"
@@ -157,6 +159,11 @@ case "$OS_TYPE" in
     fi
     ok "Linux — $OS_VER ($(uname -m))"
     ;;
+  MINGW*|MSYS*|CYGWIN*)
+    IS_WINDOWS=1
+    ok "Windows ($OS_TYPE) — running under Git Bash / MSYS / Cygwin"
+    info "Some Linux-specific checks (cgroup container detection, PVC monitoring) will be skipped."
+    ;;
   *)
     warn "Unknown OS: $OS_TYPE"
     ;;
@@ -166,6 +173,10 @@ esac
 echo ""
 echo "[User]"
 CURRENT_USER="$(whoami 2>/dev/null || id -un 2>/dev/null || echo 'unknown')"
+# On Windows (Git Bash), whoami may return "DOMAIN\user" — strip the domain prefix.
+case "$CURRENT_USER" in
+  *\\*) CURRENT_USER="${CURRENT_USER##*\\}" ;;
+esac
 UID_VAL="$(id -u 2>/dev/null || echo '?')"
 GID_VAL="$(id -g 2>/dev/null || echo '?')"
 HOME_DIR="${HOME:-unknown}"
@@ -322,7 +333,13 @@ if [ -n "$CONFIG_PATH" ]; then
 fi
 
 # ── 10. PVC persistence (auto in K8s, or --force-pvc) ──────────────────
-if { [ "$IS_CONTAINER" = "1" ] || [ -n "$FORCE_PVC" ]; } && command -v df >/dev/null 2>&1; then
+if [ "$IS_WINDOWS" = "1" ]; then
+  if [ "$IS_CONTAINER" = "1" ] || [ -n "$FORCE_PVC" ]; then
+    echo ""
+    echo "[PVC persistence]"
+    info "Skipped on Windows: device-number semantics differ; PVC monitoring is Linux/macOS-only."
+  fi
+elif { [ "$IS_CONTAINER" = "1" ] || [ -n "$FORCE_PVC" ]; } && command -v df >/dev/null 2>&1; then
   echo ""
   echo "[PVC persistence]"
 

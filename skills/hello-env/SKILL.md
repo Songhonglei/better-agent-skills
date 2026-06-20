@@ -4,7 +4,7 @@ description: "Universal dev-environment health check for Linux/macOS hosts, cont
 license: MIT
 metadata:
   author: Evan Song
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # hello-env
@@ -18,6 +18,23 @@ Pure `bash`. No Python, no npm, no third-party packages. Works on macOS, Linux, 
 - **Author**: Evan Song · [github.com/Songhonglei](https://github.com/Songhonglei)
 - **Repository**: https://github.com/Songhonglei/better-agent-skills
 - **License**: MIT
+
+## Compatibility
+
+| Platform | Status |
+|---|---|
+| Linux (any distro) | ✅ Full |
+| macOS (bash 3.2.57+ default) | ✅ Full — uses `eval`-based indirect var expansion for bash 3.x |
+| Windows (WSL / WSL2) | ✅ Full (effectively Linux) |
+| Windows (Git Bash / MSYS / Cygwin) | ⚠️ Partial — OS/user/tools/network checks work; cgroup container detection and PVC monitoring are skipped (Linux-only kernel features) |
+| Windows (PowerShell / cmd) | ❌ Not supported by design (bash script) |
+
+| Agent Platform | Status |
+|---|---|
+| Claude Code | ✅ Standard SKILL.md, drops in |
+| Codex | ✅ Same |
+| OpenClaw | ✅ Native format |
+| Cursor / Cline / others | ✅ Generic Markdown + bash, no platform hooks |
 
 ---
 
