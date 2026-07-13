@@ -6,7 +6,7 @@ A growing, security-conscious collection of portable agent skills — from
 zero-dependency environment diagnostics to cross-tool memory transfer and
 multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 
-[![Skills](https://img.shields.io/badge/skills-11-blue)](https://github.com/Songhonglei/better-agent-skills/tree/main/skills)
+[![Skills](https://img.shields.io/badge/skills-12-blue)](https://github.com/Songhonglei/better-agent-skills/tree/main/skills)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Author](https://img.shields.io/badge/author-Evan%20Song-orange)](https://github.com/Songhonglei)
 
@@ -14,12 +14,13 @@ multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 
 ## 🧩 Skills in this suite
 
-> Categorization follows the [Better Agent canonical taxonomy](https://docs.xiaohongshu.com/doc/9017796903be34f1c9c1eb64163a78aa) — Agent Memory & Boot / Agent Identity & Profile / Workspace & Session / Cross-container Coordination.
+> Categorization follows the Better Agent canonical taxonomy — Agent Memory & Boot / Agent Identity & Profile / Workspace & Session / Cross-container Coordination.
 
 ### 🧠 Agent Memory & Boot
 
 | Skill | Latest | What it does |
 |-------|--------|--------------|
+| [`init‑hooks`](skills/init-hooks) | **v1.0.0** | Run scripts automatically on every container/host boot — survives gateway restarts, container restarts and rebuilds. Registry-driven, idempotent, with inline / local-script / remote-CDN hook types. |
 | [`subagent‑timeout‑config`](skills/subagent-timeout-config) | **v1.0.0** | One-click subagent timeout configurator for OpenClaw with preset profiles. |
 | [`claw‑memory‑manager`](skills/claw-memory-manager) | **v1.1.0** | One-command management of OpenClaw built-in memory features. Configure Dreaming (Light→REM→Deep auto consolidation) with tunable half-life, max-age, IANA timezone. |
 
@@ -99,6 +100,7 @@ curl -sL https://github.com/Songhonglei/better-agent-skills/archive/refs/heads/m
 | Subagent keeps timing out | [`subagent‑timeout‑config`](skills/subagent-timeout-config) |
 | Want to give your agent a personalized look | [`agent‑avatar‑manager`](skills/agent-avatar-manager) |
 | Sessions all have terrible default names | [`rename‑session`](skills/rename-session) |
+| Init logic keeps getting lost on container rebuild | [`init‑hooks`](skills/init-hooks) |
 
 ---
 
