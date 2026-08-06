@@ -6,7 +6,7 @@ A growing, security-conscious collection of portable agent skills — from
 zero-dependency environment diagnostics to cross-tool memory transfer and
 multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 
-[![Skills](https://img.shields.io/badge/skills-12-blue)](https://github.com/Songhonglei/better-agent-skills/tree/main/skills)
+[![Skills](https://img.shields.io/badge/skills-13-blue)](https://github.com/Songhonglei/better-agent-skills/tree/main/skills)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Author](https://img.shields.io/badge/author-Evan%20Song-orange)](https://github.com/Songhonglei)
 
@@ -36,6 +36,7 @@ multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 
 | Skill | Latest | What it does |
 |-------|--------|--------------|
+| [`recover‑codex‑project‑chats`](skills/recover-codex-project-chats) | **v1.0.0** | Recover Codex Desktop project histories when folders exist but show no chats. Correlates SQLite, rollout JSONL, project assignments, providers, and CSV snapshots with guarded, backup-first repairs. |
 | [`workspace‑git‑setup`](skills/workspace-git-setup) | **v1.0.3** | One-command Git tracking with a security-focused `.gitignore` (credentials / TLS / SSH keys auto-excluded), large-file guard, and `--audit` mode. |
 | [`session‑recovery`](skills/session-recovery) | **v1.0.1** | Recover lost agent session content and file changes from on-disk conversation logs. Streaming and OOM-safe on 700MB+ daily logs. |
 | [`token‑slim`](skills/token-slim) | **v1.0.0** | Guided token optimization for agent workspaces — identifies bloat, recommends slimming, supports beast mode. |
@@ -89,6 +90,7 @@ curl -sL https://github.com/Songhonglei/better-agent-skills/archive/refs/heads/m
 
 | Scenario | Try |
 |----------|-----|
+| Codex project folders exist but show no chats | [`recover‑codex‑project‑chats`](skills/recover-codex-project-chats) |
 | New machine setup, want quick env diagnostic | [`hello‑env`](skills/hello-env) |
 | Worried about losing workspace history | [`workspace‑git‑setup`](skills/workspace-git-setup) |
 | Switching from Tool A to Tool B, don't want to retrain | [`copy‑my‑profile`](skills/copy-my-profile) |
