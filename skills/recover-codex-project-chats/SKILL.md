@@ -1,5 +1,6 @@
 ---
 name: recover-codex-project-chats
+license: MIT
 description: >
   Diagnose and safely repair Codex Desktop projects that exist but show “No chats/没有聊天”,
   while conversations may still appear under Recent. Use when users report missing project
@@ -10,7 +11,7 @@ description: >
 
 # Recover Codex project chats
 
-- **Version**: 1.0.0
+- **Version**: 1.0.1
 - **License**: MIT
 - **Author**: Evan Song · [github.com/Songhonglei](https://github.com/Songhonglei)
 - **Repository**: https://github.com/Songhonglei/better-agent-skills/tree/main/skills/recover-codex-project-chats
