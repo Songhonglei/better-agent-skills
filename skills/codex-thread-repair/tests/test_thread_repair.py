@@ -140,12 +140,23 @@ class ThreadRepairTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             codex_home = Path(temporary_directory)
             thread_id = "01catalog-thread"
-            create_catalog(codex_home, thread_id, Path("/tmp/rollout.jsonl"))
+            rollout = codex_home / "sessions" / "rollout.jsonl"
+            rollout.parent.mkdir()
+            create_catalog(codex_home, thread_id, rollout)
 
             by_title = thread_repair.resolve_thread(codex_home, "Visible title")
             by_id = thread_repair.resolve_thread(codex_home, thread_id)
             self.assertEqual(by_title["id"], thread_id)
             self.assertEqual(by_id["display_title"], "Visible title")
+
+    def test_resolve_rejects_rollout_outside_selected_codex_home(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            codex_home = root / "codex-home"
+            outside = root / "outside.jsonl"
+            create_catalog(codex_home, "01outside", outside)
+            with self.assertRaises(thread_repair.RepairError):
+                thread_repair.resolve_thread(codex_home, "01outside")
 
     def test_prepare_preserves_custom_home_and_refuses_overwrite(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

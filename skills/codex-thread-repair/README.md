@@ -57,6 +57,8 @@ No third-party Python package or network access is required for repair operation
 
 Automatic mutation is limited to one validated corruption signature. Before replacement, the tool backs up the selected rollout and consistent SQLite snapshots outside the skill directory. It verifies normalized record hashes and restores the original rollout automatically if post-installation checks fail.
 
+The selected rollout must resolve inside the chosen Codex home's `sessions/` directory; relative paths, symlink escapes, and database paths outside that boundary are refused.
+
 ## License
 
 MIT (see [LICENSE](./LICENSE))

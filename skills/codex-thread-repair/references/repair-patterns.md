@@ -5,6 +5,7 @@
 The automatic repair is allowed only when all of these are true:
 
 - The rollout is valid JSONL and its `session_meta.payload.id` matches the selected thread.
+- The rollout resolves to an absolute path under the selected Codex home's `sessions/` directory.
 - Every source record has an integer top-level `ordinal`.
 - There is exactly one non-monotonic boundary.
 - Ordinals before the boundary are contiguous from zero.

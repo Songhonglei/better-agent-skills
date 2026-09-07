@@ -104,6 +104,23 @@ def public_thread(thread: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def confine_rollout_path(codex_home: Path, thread: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy whose rollout path is proven to stay inside this Codex home."""
+    raw_path = thread.get("rollout_path")
+    if not isinstance(raw_path, str) or not raw_path:
+        raise RepairError(f"Thread {thread.get('id')} has no rollout path")
+    candidate = Path(raw_path).expanduser()
+    if not candidate.is_absolute():
+        raise RepairError(f"Thread rollout path is not absolute: {candidate}")
+    resolved = candidate.resolve()
+    sessions_root = (codex_home / "sessions").resolve()
+    try:
+        resolved.relative_to(sessions_root)
+    except ValueError as error:
+        raise RepairError(f"Thread rollout path is outside Codex sessions: {resolved}") from error
+    return {**thread, "rollout_path": str(resolved)}
+
+
 def resolve_thread(codex_home: Path, selector: str) -> dict[str, Any]:
     selector = selector.strip()
     if not selector:
@@ -122,7 +139,7 @@ def resolve_thread(codex_home: Path, selector: str) -> dict[str, Any]:
 
     matched = choose([item for item in threads if item["id"].casefold() == folded])
     if matched:
-        return matched
+        return confine_rollout_path(codex_home, matched)
     matched = choose(
         [
             item
@@ -135,7 +152,7 @@ def resolve_thread(codex_home: Path, selector: str) -> dict[str, Any]:
         ]
     )
     if matched:
-        return matched
+        return confine_rollout_path(codex_home, matched)
     matched = choose(
         [
             item
@@ -145,7 +162,7 @@ def resolve_thread(codex_home: Path, selector: str) -> dict[str, Any]:
         ]
     )
     if matched:
-        return matched
+        return confine_rollout_path(codex_home, matched)
     raise RepairError(f"No local Codex task matched: {selector}")
 
 

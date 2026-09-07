@@ -9,7 +9,7 @@ description: >
 
 # Codex Thread Repair
 
-- **Version**: 1.0.0
+- **Version**: 1.0.1
 - **License**: MIT
 - **Author**: Evan Song · [github.com/Songhonglei](https://github.com/Songhonglei)
 - **Repository**: https://github.com/Songhonglei/better-agent-skills/tree/main/skills/codex-thread-repair
@@ -61,6 +61,7 @@ Repair a specific local task without rewriting its message bodies or replacing t
 
 - Diagnosis and launcher preparation are read-only with respect to Codex state.
 - Mutation requires Codex Desktop, its renderer/services, and its app-server to be stopped.
+- Resolve the selected rollout to an absolute path under the selected Codex home's `sessions/` directory. Refuse relative paths, symlink escapes, and database paths outside that directory.
 - Back up the target rollout plus consistent snapshots of `state_5.sqlite`, `codex-dev.db`, and `.codex-global-state.json` before replacement.
 - Preserve the original rollout byte-for-byte in the backup.
 - Auto-repair only the narrowly validated ordinal-regression/orphan-turn pattern. Refuse multiple regressions, ambiguous open turns, missing rollouts, malformed JSON, non-contiguous segments, active latest turns, or session-ID mismatches.

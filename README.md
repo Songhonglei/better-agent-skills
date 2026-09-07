@@ -36,7 +36,7 @@ multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 
 | Skill | Latest | What it does |
 |-------|--------|--------------|
-| [`codex-thread-repair`](skills/codex-thread-repair) | **v1.0.0** | Repair one Codex Desktop task whose recent turns are hidden by a damaged rollout sequence. Resolves by title or thread ID, creates targeted backups, preserves message bodies, and refuses unfamiliar corruption patterns. |
+| [`codex-thread-repair`](skills/codex-thread-repair) | **v1.0.1** | Repair one Codex Desktop task whose recent turns are hidden by a damaged rollout sequence. Resolves by title or thread ID, creates targeted backups, preserves message bodies, and refuses unfamiliar corruption patterns. |
 | [`recover‑codex‑project‑chats`](skills/recover-codex-project-chats) | **v1.0.0** | Recover Codex Desktop project histories when folders exist but show no chats. Correlates SQLite, rollout JSONL, project assignments, providers, and CSV snapshots with guarded, backup-first repairs. |
 | [`workspace‑git‑setup`](skills/workspace-git-setup) | **v1.0.3** | One-command Git tracking with a security-focused `.gitignore` (credentials / TLS / SSH keys auto-excluded), large-file guard, and `--audit` mode. |
 | [`session‑recovery`](skills/session-recovery) | **v1.0.1** | Recover lost agent session content and file changes from on-disk conversation logs. Streaming and OOM-safe on 700MB+ daily logs. |
