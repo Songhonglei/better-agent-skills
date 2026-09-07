@@ -1,0 +1,51 @@
+# ─── Sensitive credentials (never commit) ─────
+*.key
+!*.public.key
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+*.pem
+*.p12
+*.pfx
+*.keystore
+**/certs/*.key
+**/secrets/
+.env
+.env.*
+!.env.example
+*.token
+*token*.json
+.secrets/
+
+# ─── OS / Editor ─────
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# ─── Language artifacts ─────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+node_modules/
+*.log
+dist/
+build/
+
+# ─── Skill runtime cache ─────
+.skill-data/
+.cache/
+tmp/
+output/
+
+# ─── AI agent internal ─────
+sign.key
+.install-source.json
+skill_meta.json
+*.json.md
