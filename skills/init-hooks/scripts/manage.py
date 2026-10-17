@@ -16,7 +16,9 @@ init-hooks manage.py — 钩子注册表管理主入口
 """
 
 import json
+import hashlib
 import os
+import re
 import sys
 import subprocess
 import shutil
@@ -124,6 +126,8 @@ def _clean_hook_fields(h: dict):
         h.pop("path", None)
         h.pop("url", None)
         h.pop("entry", None)
+        h.pop("sha256", None)
+        h.pop("allow_unverified", None)
     elif htype in ("script", "python"):
         if h.get("url"):
             h.pop("path", None)
@@ -132,6 +136,17 @@ def _clean_hook_fields(h: dict):
             h.pop("url", None)
             h.pop("entry", None)
             h.pop("content", None)
+            h.pop("sha256", None)
+            h.pop("allow_unverified", None)
+
+
+def _norm_sha256(raw: str) -> str:
+    """规范化 sha256 入参：去空白、转小写；非法值直接报错退出。"""
+    sha = (raw or "").strip().lower()
+    if sha and not re.fullmatch(r"[0-9a-f]{64}", sha):
+        print("❌ --sha256 必须是 64 位十六进制值（shasum -a 256 输出）")
+        sys.exit(1)
+    return sha
 
 
 # ── dispatcher.sh 生成 ────────────────────────────────────────────────
@@ -156,11 +171,23 @@ def generate_dispatcher(data: dict):
         "_HOOKS_SUCCESS=()",
         "_HOOKS_FAILED=()",
         "",
-        "# ── 内置下载函数（CDN URL 钩子）────────────────────────────────",
-        "_ih_download() {",
+        "# ── 内置 sha256 校验函数 ────────────────────────────────────────",
+        "_ih_verify() {",
+        '  local file="$1" expected="$2" actual',
+        '  if [ -z "$expected" ]; then return 0; fi',
+        '  if command -v sha256sum &>/dev/null; then',
+        "    actual=\"$(sha256sum \"$file\" 2>/dev/null | awk '{print $1}')\"",
+        '  elif command -v shasum &>/dev/null; then',
+        "    actual=\"$(shasum -a 256 \"$file\" 2>/dev/null | awk '{print $1}')\"",
+        '  else',
+        '    echo "[init-hooks] ❌ 无 sha256sum/shasum，无法校验下载内容" | tee -a "$LOG_FILE"; return 1',
+        '  fi',
+        '  [ "$actual" = "$expected" ]',
+        "}",
+        "",
+        "# ── 内置下载函数（CDN URL 钩子，带 sha256 校验）────────────────",
+        "_ih_fetch() {",
         '  local url="$1" dest="$2"',
-        '  if [ -f "$dest" ]; then return 0; fi',
-        '  echo "[init-hooks] 下载 $url ..." | tee -a "$LOG_FILE"',
         '  if command -v curl &>/dev/null; then',
         '    curl -fsSL "$url" -o "$dest" 2>> "$LOG_FILE"',
         '  elif command -v wget &>/dev/null; then',
@@ -169,6 +196,30 @@ def generate_dispatcher(data: dict):
         '    echo "[init-hooks] ❌ 无 curl/wget，无法下载" | tee -a "$LOG_FILE"; return 1',
         '  fi',
         "}",
+        "_ih_download() {",
+        '  local url="$1" dest="$2" expected="$3" unverified_ok="$4"',
+        '  if [ -z "$expected" ]; then',
+        '    if [ "$unverified_ok" = "1" ]; then',
+        '      echo "[init-hooks] ⚠️ 未提供 sha256 校验值（allow-unverified 豁免），直接使用下载内容" | tee -a "$LOG_FILE"',
+        '    else',
+        '      echo "[init-hooks] ❌ 钩子未提供 sha256 校验值，拒绝下载执行（用 edit 补 --sha256）" | tee -a "$LOG_FILE"',
+        '      return 1',
+        '    fi',
+        '  fi',
+        '  if [ ! -f "$dest" ]; then',
+        '    echo "[init-hooks] 下载 $url ..." | tee -a "$LOG_FILE"',
+        '    _ih_fetch "$url" "$dest" || return 1',
+        '  fi',
+        '  if [ -n "$expected" ] && ! _ih_verify "$dest" "$expected"; then',
+        '    echo "[init-hooks] ⚠️ sha256 不匹配（缓存损坏或源已变更），重新下载 ..." | tee -a "$LOG_FILE"',
+        '    rm -f "$dest"',
+        '    _ih_fetch "$url" "$dest" || return 1',
+        '    if ! _ih_verify "$dest" "$expected"; then',
+        '      echo "[init-hooks] ❌ sha256 校验失败，拒绝执行" | tee -a "$LOG_FILE"; return 1',
+        '    fi',
+        '  fi',
+        "}",
+        "",
         "",
         "# ── 内置解压函数 ─────────────────────────────────────────────────",
         "_ih_extract() {",
@@ -207,13 +258,15 @@ def generate_dispatcher(data: dict):
         lines.append(f'echo "[init-hooks] ▶ #{hid} {name_sh}..." | tee -a "$LOG_FILE"')
 
         if url:
-            # CDN URL 钩子：先下载解压，再执行
+            # CDN URL 钩子：先下载解压（sha256 校验），再执行
+            sha256 = (h.get("sha256") or "").strip().lower()
+            unverified_ok = "1" if h.get("allow_unverified") else "0"
             archive_var = f'"$DOWNLOAD_DIR/hook_{hid}_archive"'
             dest_dir_var = f'"$DOWNLOAD_DIR/hook_{hid}"'
             final_var   = f'"$DOWNLOAD_DIR/hook_{hid}.{suffix}"'
             run_cmd = f'python3 {final_var}' if htype == "python" else f'bash {final_var}'
             lines += [
-                f'_ih_download "{url}" {archive_var} &&',
+                f'_ih_download "{url}" {archive_var} "{sha256}" "{unverified_ok}" &&',
                 f'_ih_extract {archive_var} {dest_dir_var} "{entry}" "{suffix}" "{hid}"',
                 f'if [ -f {final_var} ] && {run_cmd} >> "$LOG_FILE" 2>&1; then',
             ]
@@ -417,6 +470,9 @@ def cmd_add(args: list):
     p.add_argument("--path",    default="")
     p.add_argument("--url",     default="")
     p.add_argument("--entry",   default="", help="压缩包内入口文件（配合 --url 使用）")
+    p.add_argument("--sha256",  default="", help="URL 钩子的 sha256 校验值（64 位 hex，URL 钩子必填）")
+    p.add_argument("--allow-unverified", action="store_true",
+                   help="URL 钩子无 sha256 时显式豁免完整性校验（不推荐）")
     p.add_argument("--order",   type=int, default=0)
     ns = p.parse_args(args)
 
@@ -438,8 +494,18 @@ def cmd_add(args: list):
         hook["content"] = ns.content
     else:
         if ns.url:
+            sha = _norm_sha256(ns.sha256)
+            if not sha and not ns.allow_unverified:
+                print("❌ URL 钩子会下载并执行远程代码，必须提供 --sha256 完整性校验值")
+                print("   获取方式：curl -fsSL <url> -o /tmp/pkg && shasum -a 256 /tmp/pkg")
+                print("   如明确接受无校验风险，可加 --allow-unverified 显式豁免")
+                sys.exit(1)
             hook["url"]   = ns.url
             hook["entry"] = ns.entry
+            if sha:
+                hook["sha256"] = sha
+            if ns.allow_unverified:
+                hook["allow_unverified"] = True
         elif ns.path:
             hook["path"] = ns.path  # 原样存储，generate_dispatcher 时 _expand_path 展开
         else:
@@ -462,6 +528,10 @@ def cmd_edit(hook_id: int, args: list):
     p.add_argument("--path")
     p.add_argument("--url")
     p.add_argument("--entry")
+    p.add_argument("--sha256",  default=None,
+                   help="URL 钩子的 sha256 校验值（空字符串=清除）")
+    p.add_argument("--allow-unverified", action="store_true",
+                   help="URL 钩子无 sha256 时显式豁免完整性校验（不推荐）")
     p.add_argument("--order",   type=int, default=None)  # U2: 用 None 而非 0 区分"未传"
     ns = p.parse_args(args)
 
@@ -477,10 +547,20 @@ def cmd_edit(hook_id: int, args: list):
     if ns.path    is not None: h["path"]    = ns.path
     if ns.url     is not None: h["url"]     = ns.url
     if ns.entry   is not None: h["entry"]   = ns.entry
+    if ns.sha256  is not None: h["sha256"]  = _norm_sha256(ns.sha256)  # 空字符串=清除
     if ns.order   is not None: h["order"]   = ns.order  # U2: 0 也能正确写入
 
     # L3: 切换 type 后清理不属于新 type 的旧字段
     _clean_hook_fields(h)
+
+    # URL 钩子安全约束：无 sha256 且未豁免 → 拒绝保存
+    if h.get("url"):
+        if ns.allow_unverified:
+            h["allow_unverified"] = True
+        if not h.get("sha256") and not h.get("allow_unverified"):
+            print("❌ URL 钩子缺少 sha256 校验值：请加 --sha256 <64位hex>，")
+            print("   或加 --allow-unverified 显式豁免（不推荐）")
+            sys.exit(1)
 
     h["updated_at"] = now_str()
     save_hooks(data)
@@ -637,22 +717,52 @@ def _safe_extract_tar(tf: "tarfile.TarFile", dest_dir: Path):
         tf.extractall(dest_dir)
 
 
+def _sha256_of_file(path) -> str:
+    """计算文件 sha256（hex 小写）；IO 失败返回空串。"""
+    try:
+        digest = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+    except OSError:
+        return ""
+
+
 def _download_hook(h: dict) -> bool:
-    """下载 URL 钩子，解压后在 downloads/ 建立标准路径软链接。"""
+    """下载 URL 钩子，sha256 校验通过后解压并在 downloads/ 建立标准路径软链接。"""
     url     = h["url"]
     hook_id = h["id"]
     entry   = h.get("entry", "")
     htype   = h.get("type", "script")
     suffix  = "py" if htype == "python" else "sh"
+    sha256  = (h.get("sha256") or "").strip().lower()
+    allow_unverified = bool(h.get("allow_unverified"))
+
+    if not sha256 and not allow_unverified:
+        print("❌ URL 钩子缺少 sha256 校验值且未豁免，拒绝下载执行")
+        print("   修复：python3 manage.py edit %d --sha256 <64位hex>" % hook_id)
+        print("        （或 --allow-unverified 显式豁免，不推荐）")
+        return False
 
     DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
     dest_dir = DOWNLOAD_DIR / f"hook_{hook_id}"
     archive  = DOWNLOAD_DIR / f"hook_{hook_id}_archive"
     final    = DOWNLOAD_DIR / f"hook_{hook_id}.{suffix}"
+    verified_marker = dest_dir / ".sha256-verified"
 
-    # 已有缓存直接返回
+    # 已有缓存：有 sha256 时必须带匹配的校验标记，否则重建
     if final.exists():
-        return True
+        if not sha256:
+            return True
+        try:
+            if verified_marker.read_text().strip() == sha256:
+                return True
+        except OSError:
+            pass
+        print("[init-hooks] 缓存未经 sha256 校验（或校验值已变更），重建缓存 ...")
+        shutil.rmtree(dest_dir, ignore_errors=True)
+        final.unlink(missing_ok=True)
 
     print(f"[init-hooks] 下载 {url} ...")
     try:
@@ -660,6 +770,16 @@ def _download_hook(h: dict) -> bool:
     except Exception as e:
         print(f"❌ 下载失败: {e}")
         return False
+
+    # 下载后立即校验完整性，不合格的内容不进入解压流程
+    if sha256:
+        actual = _sha256_of_file(archive)
+        if actual != sha256:
+            print(f"❌ sha256 校验失败：expected={sha256} actual={actual or '(读取失败)'}")
+            archive.unlink(missing_ok=True)
+            return False
+    else:
+        print("⚠️  未提供 sha256 校验值（allow-unverified 豁免），直接使用下载内容")
 
     dest_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -697,6 +817,9 @@ def _download_hook(h: dict) -> bool:
         final.unlink()
     final.symlink_to(entry_path)
     entry_path.chmod(0o755)
+    if sha256:
+        verified_marker.parent.mkdir(parents=True, exist_ok=True)
+        verified_marker.write_text(sha256)
     print(f"[init-hooks] 入口就绪: {final.name} → {entry_path}")
     return True
 

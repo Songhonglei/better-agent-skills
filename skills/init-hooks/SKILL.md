@@ -11,7 +11,7 @@ description: >
 
 # init-hooks
 
-- **Version**: 1.0.0
+- **Version**: 1.0.1
 - **License**: MIT
 - **Author**: Evan Song · [github.com/Songhonglei](https://github.com/Songhonglei)
 - **Repository**: https://github.com/Songhonglei/better-agent-skills (skills/init-hooks)
@@ -98,12 +98,24 @@ python3 $SCRIPT add \
 
 ### CDN URL（zip/tar.gz 自动下载解压）
 
+> ⚠️ **安全模型**：URL 钩子会**下载并执行远程代码**。v1.0.1 起强制完整性校验：
+> - `--sha256` 必填（`shasum -a 256` 的 64 位 hex 输出）。下载后立即校验，不匹配拒绝执行；缓存每次使用前也会复核校验标记
+> - 确实无法提供校验值时，加 `--allow-unverified` 显式豁免（不推荐，dispatcher 日志会持续警告）
+> - 生成的 dispatcher.sh 内置相同校验逻辑，启动时同样强制
+
 ```bash
+# 先算校验值
+curl -fsSL "https://cdn.example.com/my-init.zip" -o /tmp/pkg
+shasum -a 256 /tmp/pkg        # → 64 位 hex
+
 python3 $SCRIPT add \
   --name "远程初始化包" \
   --type script \
   --url "https://cdn.example.com/my-init.zip" \
-  --entry "run.sh"         # 压缩包内入口文件名（不指定则自动找第一个 .sh/.py）
+  --sha256 "abc123..." \
+  --entry "run.sh"
+# --sha256 = 上一步 shasum 输出（必填，除非加 --allow-unverified 显式豁免）
+# --entry  = 压缩包内入口文件名（不指定则自动找第一个 .sh/.py）
 ```
 
 首次执行（启动或 `run` 命令）时自动下载解压到 `downloads/hook_<id>/`，缓存存在则直接使用，pod 重建后缓存丢失会自动重新下载。
