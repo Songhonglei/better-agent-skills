@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+.env
+.env.*
+!.env.example
+sign.key
+.sign-key
+*.pem
+*.p12
+*.keystore
+id_rsa

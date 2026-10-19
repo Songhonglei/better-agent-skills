@@ -6,7 +6,7 @@ A growing, security-conscious collection of portable agent skills — from
 zero-dependency environment diagnostics to cross-tool memory transfer and
 multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 
-[![Skills](https://img.shields.io/badge/skills-13-blue)](https://github.com/Songhonglei/better-agent-skills/tree/main/skills)
+[![Skills](https://img.shields.io/badge/skills-16-blue)](https://github.com/Songhonglei/better-agent-skills/tree/main/skills)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Author](https://img.shields.io/badge/author-Evan%20Song-orange)](https://github.com/Songhonglei)
 
@@ -14,7 +14,7 @@ multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 
 ## 🧩 Skills in this suite
 
-> Categorization follows the Better Agent canonical taxonomy — Agent Memory & Boot / Agent Identity & Profile / Workspace & Session / Cross-container Coordination.
+> Categorization follows the Better Agent canonical taxonomy — Agent Memory & Boot / Agent Identity & Profile / Workspace & Session / Cross-container Coordination / Agent Workflow.
 
 ### 🧠 Agent Memory & Boot
 
@@ -44,6 +44,15 @@ multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 | [`hello‑env`](skills/hello-env) | **v1.0.2** | Zero-dependency Bash environment health check for Linux, macOS, containers, K8s pods. |
 | [`collective‑memory`](skills/collective-memory) | **v1.0.0** | Broadcast a single memory note to multiple AI agent workspaces in one shot — upserts into MEMORY.md / AGENTS.md / TOOLS.md. |
 
+### Agent Workflow
+
+Multica project onboarding and runtime squad dispatch. These skills require a compatible Multica deployment and preserve existing business authorization rules.
+
+| Skill | Latest | What it does |
+|-------|--------|--------------|
+| [`multica-squad-onboard`](skills/multica-squad-onboard) | **v1.0.0** | Check existing project/squad prerequisites, configure different project-scoped captain and worker instructions, add the shared scheduler, repair the project owner when explicitly authorized, and verify with a read-only preview. |
+| [`multica-squad-load-balancer`](skills/multica-squad-load-balancer) | **v1.0.0** | Filter workers by capability, online runtime and concurrency capacity, dispatch by live load, and verify the delegation chain before business execution. Reconcile existing or uncertain execution instead of automatically reassigning. |
+
 ### 🌐 Cross-container Coordination
 
 | Skill | Latest | What it does |
@@ -59,6 +68,7 @@ Three ways to install, pick what fits your agent:
 ### Option 1 — ClawHub (recommended for OpenClaw users)
 
 ```bash
+# For skills that have also been published on ClawHub
 clawhub install <skill-name>
 # e.g.
 clawhub install hello-env
@@ -91,6 +101,8 @@ curl -sL https://github.com/Songhonglei/better-agent-skills/archive/refs/heads/m
 
 | Scenario | Try |
 |----------|-----|
+| Set up an existing Multica project for squad dispatch | [`multica-squad-onboard`](skills/multica-squad-onboard) |
+| Delegate Multica squad work by capability and live load | [`multica-squad-load-balancer`](skills/multica-squad-load-balancer) |
 | A Codex task exists but its latest turns disappeared | [`codex-thread-repair`](skills/codex-thread-repair) |
 | Codex project folders exist but show no chats | [`recover‑codex‑project‑chats`](skills/recover-codex-project-chats) |
 | New machine setup, want quick env diagnostic | [`hello‑env`](skills/hello-env) |
