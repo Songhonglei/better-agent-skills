@@ -6,7 +6,7 @@ A growing, security-conscious collection of portable agent skills — from
 zero-dependency environment diagnostics to cross-tool memory transfer and
 multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 
-[![Skills](https://img.shields.io/badge/skills-16-blue)](https://github.com/Songhonglei/better-agent-skills/tree/main/skills)
+[![Skills](https://img.shields.io/badge/skills-17-blue)](https://github.com/Songhonglei/better-agent-skills/tree/main/skills)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Author](https://img.shields.io/badge/author-Evan%20Song-orange)](https://github.com/Songhonglei)
 
@@ -46,12 +46,13 @@ multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 
 ### Agent Workflow
 
-Multica project onboarding and runtime squad dispatch. These skills require a compatible Multica deployment and preserve existing business authorization rules.
+Workflows that help agents collaborate and manage work more effectively — from project roles and task delegation to agent teams and shared project knowledge. Each skill documents its own platform prerequisites and preserves existing business authorization rules.
 
 | Skill | Latest | What it does |
 |-------|--------|--------------|
 | [`multica-squad-onboard`](skills/multica-squad-onboard) | **v1.0.0** | Check existing project/squad prerequisites, configure different project-scoped captain and worker instructions, add the shared scheduler, repair the project owner when explicitly authorized, and verify with a read-only preview. |
 | [`multica-squad-load-balancer`](skills/multica-squad-load-balancer) | **v1.0.0** | Filter workers by capability, online runtime and concurrency capacity, dispatch by live load, and verify the delegation chain before business execution. Reconcile existing or uncertain execution instead of automatically reassigning. |
+| [`openviking-projects`](skills/openviking-projects) | **v1.0.2** | Set up local project knowledge with mirror/offline installation, reviewed source lists, one global read-only MCP routed by project code and workspace, and verified incremental synchronization. |
 
 ### 🌐 Cross-container Coordination
 
@@ -101,6 +102,7 @@ curl -sL https://github.com/Songhonglei/better-agent-skills/archive/refs/heads/m
 
 | Scenario | Try |
 |----------|-----|
+| Keep project knowledge current across agent workspaces | [`openviking-projects`](skills/openviking-projects) |
 | Set up an existing Multica project for squad dispatch | [`multica-squad-onboard`](skills/multica-squad-onboard) |
 | Delegate Multica squad work by capability and live load | [`multica-squad-load-balancer`](skills/multica-squad-load-balancer) |
 | A Codex task exists but its latest turns disappeared | [`codex-thread-repair`](skills/codex-thread-repair) |

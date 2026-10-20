@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenViking 项目知识管理"
+  short_description: "在新电脑安装 OpenViking，配置项目知识、镜像下载与只读 MCP"
+  default_prompt: "使用 $openviking-projects 为当前电脑安装或接入 OpenViking，并按白名单管理当前项目知识。"
