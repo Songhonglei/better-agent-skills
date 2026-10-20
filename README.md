@@ -140,6 +140,7 @@ Every skill in this suite follows these standards:
 
 - [OpenClaw](https://github.com/openclaw/openclaw) — open-source agent framework (most skills target this primarily)
 - [ClawHub](https://clawhub.com) — public skill marketplace
+- [SkillHub.cn](https://skillhub.cn) — AI skills community optimized for users in China
 - [skills.sh](https://www.skills.sh) — multi-agent skill installer (`npx skills`)
 - [Anthropic Skills spec](https://docs.anthropic.com) — the underlying SKILL.md format
 
