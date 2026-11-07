@@ -13,6 +13,10 @@
 
 安装需先用 Python 3.11+ 启动本工具，即使指定了另一个 --python。日志位于状态目录 `logs/install-*.log`，完成/失败回执为 `evidence/install-last.json`。来源、离线 tokenizer 和 TLS 说明见 [network-install.md](network-install.md)。
 
+## 可选看板入口
+
+`studio install [--port 1934] [--dry-run]` 部署附带组件而不启动；`studio start/status/stop` 管理看板；`studio install-entry/restore-entry` 可逆替换/恢复原 Studio 首页。全部沿用入口的 `--home`，不随普通安装自动执行。启用条件、数据口径和验收见 [studio.md](studio.md)。
+
 ## 运行时入口
 
 | 命令 | 参数与默认行为 |

@@ -1,12 +1,12 @@
 ---
 name: openviking-projects
 description: >
-  在新电脑安装或接入 OpenViking，用白名单管理本地项目知识；支持 GitHub 不通时的镜像安装、模型权限检查、只读 MCP、多项目路由与增量同步。用于 OpenViking 项目知识接入和运维；聊天记忆插件另行选择。
+  在新电脑安装或接入 OpenViking，用白名单管理本地项目知识；支持镜像安装、模型权限检查、只读 MCP、多项目路由与增量同步。按需激活监控板块、Web 看板或高级 Studio；聊天记忆插件另行选择。
 ---
 
 # OpenViking 项目知识管理
 
-- **Version**: 1.0.3
+- **Version**: 1.1.0
 - **License**: MIT
 - **Author**: Evan Song · [github.com/Songhonglei](https://github.com/Songhonglei)
 - **Repository**: https://github.com/Songhonglei/better-agent-skills/tree/main/skills/openviking-projects
@@ -20,6 +20,7 @@ description: >
 - 筛选或新增项目：读 [project-policy.md](references/project-policy.md)，使用 `assets/policy.example.json`。
 - 服务、MCP、登录启动和调度：读 [operations.md](references/operations.md)。验收读 [validation.md](references/validation.md)。典型项目的取舍与踩坑见 [lessons.md](references/lessons.md)。
 - 参数、默认值、退出码与排错入口：查 [cli.md](references/cli.md)。
+- 用户需要激活监控板块、Web 看板、高级 Studio 或替代默认 Studio：读 [studio.md](references/studio.md)，通过 `scripts/ovk.py studio` 安装并启用可选组件。普通安装、初始化和项目接入不启用它；替换首页、自启动分别按用户需求执行。
 
 ## 依赖
 

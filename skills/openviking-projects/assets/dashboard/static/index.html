@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>OpenViking · 本地监控</title>
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/style.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">跳到主要内容</a>
+  <aside class="sidebar">
+    <a class="brand" href="#overview"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M6 9 18 3 30 9v15l-12 9L6 24Z"/><path d="m12 12 6 14 6-14M12 12h12"/></svg><span>OpenViking<small>本地知识监控</small></span></a>
+    <nav aria-label="主要导航">
+      <button class="nav active" data-view="overview"><span class="nav-icon">◫</span>运行总览</button>
+      <button class="nav" data-view="projects"><span class="nav-icon">▤</span>项目与资料<span id="nav-projects" class="nav-count">—</span></button>
+      <button class="nav" data-view="tasks"><span class="nav-icon">☷</span>任务记录<span id="nav-active" class="nav-count"></span></button>
+      <button class="nav" data-view="models"><span class="nav-icon">◇</span>模型与用量</button>
+      <button class="nav" data-view="search"><span class="nav-icon">⌕</span>检索验证</button>
+      <button class="nav" data-view="events"><span class="nav-icon">≋</span>服务事件</button>
+    </nav>
+    <div class="sidebar-bottom"><span class="local-dot"></span>仅供本机访问<small>Asia/Shanghai · 只读监控</small><a id="classic-studio" class="hidden" href="#" target="_blank" rel="noopener">打开原版 Studio</a></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar">
+      <div class="breadcrumb">本机工作区<span>/</span><strong id="breadcrumb">运行总览</strong></div>
+      <div class="top-actions"><span id="connection" class="connection"><span class="status-dot"></span>正在连接</span><button id="refresh" class="button quiet">刷新</button></div>
+    </header>
+    <main id="main" tabindex="-1">
+      <div class="page-heading"><div><h1 id="page-title">运行总览</h1><p id="page-description">把资料、索引与运行状态放在同一个视野里。</p></div><div class="view-controls"><label id="project-filter-label" class="sr-only" for="project-filter">筛选项目</label><select id="project-filter"><option value="all">全部业务项目</option></select><span id="global-scope" class="subtext hidden">全服务范围</span><label class="auto-refresh"><input id="auto-refresh" type="checkbox" checked>每 15 秒刷新</label></div></div>
+      <div id="failure-banner" class="notice danger hidden" role="alert"></div>
+      <div id="initial-loading" class="loading-block" role="status"><span class="spinner"></span>正在读取本地服务和项目状态…</div>
+      <section id="overview-view" class="view hidden" aria-label="运行总览">
+        <div id="attention" class="notice hidden"></div>
+        <div class="metrics-strip" id="metrics"></div>
+        <section class="panel primary-panel"><div class="section-heading"><div><h2>项目知识状态</h2><p>资料是否更新、索引是否一致，一眼可见。</p></div><button class="text-button" data-go="projects">查看全部资料</button></div><div class="table-scroll"><table class="project-table"><thead><tr><th>项目</th><th>资料源</th><th>新鲜度</th><th>最近同步</th><th>检索验收</th><th>操作</th></tr></thead><tbody id="overview-projects"></tbody></table></div><div class="panel-foot">原文数量按白名单统计，包含来源规则的索引原文单独计数。</div></section>
+        <div class="two-column"><section class="panel"><div class="section-heading"><div><h2>处理队列</h2><p id="queue-caption">读取服务实时队列</p></div><span id="queue-status" class="badge neutral">—</span></div><div id="queues" class="queue-list"></div></section><section class="panel"><div class="section-heading"><div><h2>最近任务</h2><p>按项目账号汇总后台任务。</p></div><button class="text-button" data-go="tasks">查看记录</button></div><div id="recent-tasks" class="task-list"></div></section></div>
+        <section class="panel system-panel"><h2>本机运行环境</h2><div id="system" class="system-grid"></div></section>
+      </section>
+      <section id="projects-view" class="view hidden" aria-label="项目与资料"><section class="panel"><div class="section-heading"><div><h2>已登记的项目</h2><p>独立账号管理，各项目使用明确的工作区与资料范围。</p></div><label class="check-label"><input id="show-validation" type="checkbox">显示初始化验收项目</label></div><div id="project-cards" class="project-details"></div></section></section>
+      <section id="tasks-view" class="view hidden" aria-label="任务记录"><section class="panel"><div class="section-heading wrap"><div><h2>后台任务</h2><p id="tasks-count">读取任务记录</p></div><div class="task-controls"><label class="sr-only" for="task-query">搜索任务</label><input id="task-query" type="search" placeholder="搜索任务或资源"><label class="sr-only" for="task-status">任务状态</label><select id="task-status"><option value="">全部状态</option><option value="running">执行中</option><option value="pending">等待中</option><option value="completed">已完成</option><option value="failed">失败</option><option value="cancelled">已取消</option></select></div></div><div class="table-scroll"><table><thead><tr><th>项目</th><th>任务</th><th>状态</th><th>创建时间</th><th>处理用时</th><th>操作</th></tr></thead><tbody id="tasks-table"></tbody></table></div><div id="tasks-pagination" class="panel-foot"></div></section></section>
+      <section id="models-view" class="view hidden" aria-label="模型与用量"><div id="model-configuration" class="model-configuration"></div><section class="panel"><div class="section-heading"><div><h2>近 7 天 Token 记录</h2><p>按北京时间汇总服务端记录，用量与供应商账单分别核对。</p></div><button id="load-tokens" class="text-button">更新趋势</button></div><div class="chart-legend"><span class="legend vlm-input">摘要输入</span><span class="legend vlm-output">摘要输出</span><span class="legend embedding">向量输入</span></div><div id="token-chart" class="token-chart"><p class="empty">正在读取用量记录…</p></div><div id="token-table" class="table-scroll"></div></section><section class="panel"><div class="section-heading"><div><h2>进程内模型调用</h2><p>此计数可能随服务重启归零，与上方持久用量记录分别展示。</p></div></div><div class="table-scroll"><table><thead><tr><th>项目</th><th>模型</th><th>调用</th><th>输入 Token</th><th>输出 Token</th></tr></thead><tbody id="model-calls"></tbody></table></div></section></section>
+      <section id="search-view" class="view hidden" aria-label="检索验证"><section class="panel"><div class="section-heading"><div><h2>检索项目知识</h2><p>先定位相关资料，再回读原文与证据日期。</p></div><span class="badge neutral">每次 3 条结果</span></div><form id="search-form" class="search-form"><label>项目<select id="search-project" required></select></label><label class="search-query-label">问题<input id="search-query" placeholder="例如：当前版本的交付边界是什么？" required maxlength="1000"></label><button id="search-submit" class="button primary" type="submit">检索资料</button></form><p class="form-note">检索会调用本地向量模型。索引过期时会明确提示，可在项目资料中查看本地选区。</p><div id="search-status" role="status"></div><div id="search-results" class="search-results"></div></section></section>
+      <section id="events-view" class="view hidden" aria-label="服务事件"><section class="panel"><div class="section-heading"><div><h2>最近服务事件</h2><p>保留历史告警，当前运行状态请看实时就绪检查。</p></div><button id="load-events" class="text-button">刷新事件</button></div><div id="events-list" class="event-list"></div></section></section>
+      <footer><span id="updated-at">等待首次更新</span><span id="footer-scope">OpenViking 本地项目监控</span></footer>
+    </main>
+  </div>
+  <dialog id="detail-dialog" aria-labelledby="detail-title"><div class="dialog-heading"><div><h2 id="detail-title">详情</h2><p id="detail-subtitle"></p></div><button id="close-dialog" class="icon-button" aria-label="关闭详情">×</button></div><div id="detail-body" class="dialog-body"></div></dialog>
+  <div id="toast" class="toast hidden" role="status"></div>
+</body>
+</html>

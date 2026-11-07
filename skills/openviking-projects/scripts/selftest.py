@@ -22,10 +22,59 @@ from urllib.error import HTTPError
 SKILL=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('ovk_bootstrap',SKILL/'scripts/ovk.py')
 bootstrap=importlib.util.module_from_spec(spec);spec.loader.exec_module(bootstrap)
+with patch.object(sys,'path',[str(SKILL/'scripts'),*sys.path]):
+    spec=importlib.util.spec_from_file_location('ovk_studio',SKILL/'scripts/studio.py')
+    studio=importlib.util.module_from_spec(spec);spec.loader.exec_module(studio)
 runtime=SKILL/'assets/runtime'
 with patch.object(sys,'path',[str(runtime),*sys.path]):
     spec=importlib.util.spec_from_file_location('ovk_manage',runtime/'manage.py')
     manager=importlib.util.module_from_spec(spec);spec.loader.exec_module(manager)
+
+
+class OptionalStudio(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory(prefix='ovk-studio-')
+        self.addCleanup(self.temp.cleanup)
+        self.root=Path(self.temp.name)/'state'
+
+    def test_dry_run_does_not_create_state(self):
+        result=studio.install(self.root,21934,dry_run=True)
+        self.assertEqual(result['url'],'http://127.0.0.1:21934')
+        self.assertFalse(self.root.exists())
+        self.assertFalse(result['starts_service'])
+        self.assertFalse(result['replaces_studio_entry'])
+
+    def prepare(self):
+        bootstrap.initialize(self.root);bootstrap.deploy_runtime(self.root)
+        py=bootstrap.interpreter(self.root);py.parent.mkdir(parents=True);py.write_text('fixture')
+
+    def test_ordinary_install_does_not_deploy_optional_dashboard(self):
+        bootstrap.initialize(self.root);bootstrap.deploy_runtime(self.root)
+        self.assertFalse((self.root/'dashboard').exists())
+
+    def test_install_is_idempotent_and_preserves_local_edits(self):
+        self.prepare()
+        with patch.object(studio.subprocess,'run',return_value=SimpleNamespace(returncode=0)):
+            self.assertEqual(studio.install(self.root,21934)['status'],'installed')
+            self.assertEqual(studio.install(self.root)['status'],'installed')
+            target=self.root/'dashboard/app/server.py';target.write_text('local change')
+            with self.assertRaises(ValueError):studio.install(self.root)
+            self.assertEqual(target.read_text(),'local change')
+        self.assertFalse((self.root/'dashboard/server.pid').exists())
+
+    def test_failed_dependency_check_leaves_dashboard_absent(self):
+        self.prepare()
+        with patch.object(studio.subprocess,'run',return_value=SimpleNamespace(returncode=1)):
+            with self.assertRaises(RuntimeError):studio.install(self.root)
+        self.assertFalse((self.root/'dashboard').exists())
+
+    def test_existing_unmanaged_dashboard_and_invalid_ports_preserved(self):
+        for port in [True,80,65536]:
+            with self.assertRaises(ValueError):studio.install(self.root,port,dry_run=True)
+        app=self.root/'dashboard/app';app.mkdir(parents=True)
+        (app/'custom.txt').write_text('existing')
+        with self.assertRaises(ValueError):studio.install(self.root,dry_run=True)
+        self.assertEqual((app/'custom.txt').read_text(),'existing')
 
 
 class Offline(unittest.TestCase):

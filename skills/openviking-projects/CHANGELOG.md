@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0 — 2026-11-08
+
+- Bundle the enhanced local Studio as an optional component, activated for monitoring, Web dashboard and advanced-Studio requests. Ordinary installation and project onboarding do not deploy or start it.
+- Add `studio install/start/status/stop/install-entry/restore-entry`, configurable loopback ports, deployment fingerprints, instance identity checks, and reversible original-Studio entry replacement.
+- Include project freshness, source previews, read-only sync preflight, task pagination, model/Token usage, snapshot-aware retrieval and service-wide events. Reuse the local registry and credentials without bundling machine-specific data.
+- Carry over reviewed fixes for filtering, failed pagination retries, stale responses, partial failures, history navigation and mobile controls; add portable deployment and custom-port regressions.
+
 ## 1.0.3 — 2026-11-07
 
 - Reconcile a journaled task returning HTTP 404 only after refreshing the complete task inventory, rejecting active/overlapping tasks, and verifying every canonical original hash. Preserve other HTTP failures and never resubmit a missing task blindly.

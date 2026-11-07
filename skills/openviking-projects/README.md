@@ -11,6 +11,7 @@ Give agents a shared, traceable view of local project knowledge with OpenViking.
 - Share one read-only MCP across projects while retaining separate backend accounts by default.
 - Synchronize changed sources with locks, journals, original-source readbacks and a five-file incremental change limit. Unchanged sources create no model jobs.
 - Configure login startup and weekday synchronization when requested, after project verification.
+- Optionally activate the enhanced local Studio for monitoring, a Web dashboard or advanced-Studio requests. It stays off during ordinary installation and onboarding.
 
 Task recovery only accepts HTTP 404 with a complete activity check and matching canonical originals. Other failures block synchronization. Parser options are part of job identity; changing the parser of an existing index still requires a separate review.
 
@@ -52,6 +53,18 @@ python3 scripts/ovk.py install --index tuna --dry-run
 
 Continue with [onboarding.md](references/onboarding.md). Model endpoints, model names, embedding dimensions and credential references must come from your own environment. A Codex account login does not provide an embedding service.
 
+## Optional enhanced Studio
+
+Ask: `使用 $openviking-projects 激活监控板块 / Web 看板 / 高级 Studio。`
+
+```sh
+python3 scripts/ovk.py studio install --dry-run
+python3 scripts/ovk.py studio install
+python3 scripts/ovk.py studio start
+```
+
+The dashboard defaults to `http://127.0.0.1:1934/`, reuses existing local projects and credentials, and supports custom ports. It includes project/source freshness, tasks, model usage, retrieval and service events. Replacing the original Studio homepage is a separate reversible action. See [studio.md](references/studio.md) for activation, recovery, boundaries and validation.
+
 ## Architecture and boundaries
 
 One global `openviking` MCP serves all registered projects. Use `resolve_project` for the current absolute workspace, then supply `project_code` and `workspace_path` on every find/read/list/tree call. Adding a project does not register another MCP.
@@ -67,7 +80,7 @@ python3 scripts/selftest.py
 python3 scripts/selftest.py --native-python /path/to/openviking-venv/bin/python --report /local/results.json
 ```
 
-The release has 32 offline regression checks, including expired-task recovery, parser-bound job identities and complete task pagination. Native OpenViking 0.5.0 was also tested with three synthetic projects and local fake models, including MCP calls, pagination, incremental sync, recovery from a real missing-task HTTP 404 through canonical-source readbacks without another model job, and six directed cross-account denials. That test reuses existing dependencies; it is not a fresh installation test on every OS or a measurement of semantic accuracy or whole-task token savings.
+The release has 37 offline regression checks, including five optional-dashboard deployment checks, plus expired-task recovery, parser-bound job identities and complete task pagination. Native OpenViking 0.5.0 was also tested with three synthetic projects and local fake models, including MCP calls, pagination, incremental sync, recovery from a real missing-task HTTP 404 through canonical-source readbacks without another model job, and six directed cross-account denials. That test reuses existing dependencies; it is not a fresh installation test on every OS or a measurement of semantic accuracy or whole-task token savings.
 
 See [validation.md](references/validation.md) for acceptance criteria and [cli.md](references/cli.md) for parameters, status codes and recovery.
 

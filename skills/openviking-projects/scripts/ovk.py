@@ -215,6 +215,7 @@ def main():
     p=sub.add_parser('install');p.add_argument('--index',default='auto');p.add_argument('--wheelhouse');p.add_argument('--python');p.add_argument('--dry-run',action='store_true')
     p=sub.add_parser('configure');p.add_argument('--models',required=True);p.add_argument('--secrets');p.add_argument('--port',type=int,default=1933)
     p=sub.add_parser('fetch-source');p.add_argument('--url',required=True);p.add_argument('--commit',required=True);p.add_argument('--destination',required=True)
+    sub.add_parser('studio',add_help=False)
     # Runtime command grammar is owned by the deployed manager.
     for name in ['doctor','start','stop','status','project','sync-all','mcp','autostart','schedule','verify']:
         sub.add_parser(name,add_help=False)
@@ -230,6 +231,8 @@ def main():
     elif args.command=='install':result=install(root,args)
     elif args.command=='configure':result=configure(root,args)
     elif args.command=='fetch-source':result=fetch_source(root,args)
+    elif args.command=='studio':
+        return subprocess.call([sys.executable,str(SKILL/'scripts/studio.py'),'--home',str(root),*rest])
     else:
         command=[str(interpreter(root)),str(root/'scripts/manage.py'),args.command,*rest]
         if not interpreter(root).is_file() or not (root/'scripts/manage.py').is_file():raise ValueError('Install this portable runtime first.')
