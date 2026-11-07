@@ -184,9 +184,9 @@ if [[ "$MODE" == "audit" ]]; then
   echo -e "${BLUE}[3/3] 关键 git 配置检测${NC}"
   AC=$(git config --get core.autocrlf || echo '(未设置)')
   if [[ "$AC" == "input" || "$AC" == "false" ]]; then
-    ok "  core.autocrlf=$AC（推荐值）"
+    ok "  core.autocrlf=${AC}（推荐值）"
   else
-    warn "  core.autocrlf=$AC（建议设为 input，统一换行符避免 CRLF 假 diff）"
+    warn "  core.autocrlf=${AC}（建议设为 input，统一换行符避免 CRLF 假 diff）"
   fi
   [[ -f "$WORKSPACE_PATH/.gitignore" ]] && ok "  .gitignore 存在" || warn "  .gitignore 缺失"
   echo ""
@@ -228,7 +228,7 @@ fi
 # 邮箱有但用户名缺失时，用邮箱前缀兜底，避免静默落入交互
 if [[ -n "$GIT_EMAIL" && -z "$GIT_USER" ]]; then
   GIT_USER="${GIT_EMAIL%@*}"
-  info "未提供用户名，按邮箱前缀推断：$GIT_USER（可后续 git config 修改）"
+  info "未提供用户名，按邮箱前缀推断：${GIT_USER}（可后续 git config 修改）"
 fi
 
 # 已有 git config 作为备用
