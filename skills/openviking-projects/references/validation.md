@@ -15,7 +15,7 @@ python3 <skill>/scripts/selftest.py --native-python /path/to/openviking-venv/bin
 
 1. 元数据、白名单/选区、索引量与排除范围可审阅；配置不含其他电脑用户名和凭据。
 2. doctor --probe-models 分别通过摘要与 embedding；检查实际向量长度。服务 ready 通过。
-3. dry-run 展示实际变化；首次完成后逐份 canonical source SHA256 一致，task 状态与持久回执一致。
+3. dry-run 展示实际变化；首次完成后逐份 canonical source SHA256 一致，task 状态与持久回执一致；若任务记录已过期，须有本次原文核验和 verified_from_content 恢复记录。
 4. 使用项目自己的问题清单（建议 6–12 道），真实 find 后 read，核对事实和来源 URI；默认前三条不够再请求八条，记录结果而不是调答案凑分。
 5. verify 命令检查真实 STDIO、只读工具、显式工作区、预算、分页、错误快照和跨 scope 拒绝。--contains 应提供项目实际事实；不加时只是检索可用性测试。
 6. 有两个以上项目时验证 code/workspace 不匹配与交叉 URI 被拒绝。独立账号另测原生 API 跨账号读取；共享账号应明确“没有原生账号隔离”。
@@ -25,6 +25,7 @@ python3 <skill>/scripts/selftest.py --native-python /path/to/openviking-venv/bin
 ## 故障判断
 
 - 账号登录成功但 embedding 403：分别检查模型绑定与权限，不替用户换另一个未授权模型。
+- 已记录任务返回 404：完整分页检查活动任务，再逐份比对原文。全部一致可恢复；有活动任务、原文不一致/无法读取、分页不完整或非 404 错误时停止并核查 journal，不重新提交碰运气。
 - 任务 completed 但原文哈希不一致：看 canonical 路径与 parser 布局，检查是否 Markdown 分片。不能只接受“已导入”。
 - 初次目录导入 no-split 与单文件增量布局不同：使用本包的每资料目录暂存结构，且不要把既有 layout 配置改了继续重提。已有数据先审阅、备份并验证自有范围再迁移。
 - MCP 进程启动但没有结果：核对 runtime root、客户端环境、工作区信任、tiktoken cache 与 ready，再用真实协议验收。

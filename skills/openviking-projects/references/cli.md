@@ -35,7 +35,7 @@
 - 0：操作完成或预览成功；重复配置可返回 already_configured。status 的 0 代表读取状态成功，应另外检查 ready。时钟未到期可无输出退出。
 - 1：已知操作失败；同步 complete/unchanged 才成功，failed/partial 需逐项检查，skipped/already_running 等待原进程，不追加重试。
 - 2：参数解析失败。透传的子命令沿用其非零失败码，不能把其他非零值当成功。
-- 安装失败看 logs/install-*.log；服务未 ready 看 logs/server.log；同步失败看项目 logs/scheduled-sync.log 和 evidence/sync-journal.json。提交结果未知先查已有任务，不盲目重提。
+- 安装失败看 logs/install-*.log；服务未 ready 看 logs/server.log；同步失败看项目 logs/scheduled-sync.log 和 evidence/sync-journal.json。提交结果未知先查已有任务，不盲目重提。只有已记录任务的 HTTP 404、完整活动任务清单和全部 canonical 原文哈希一致才自动恢复；403、原文不匹配或任务清单异常继续失败。
 - 已有运行时指纹不同会拒绝覆盖；先保存配置/凭据和数据，审阅升级差异并用隔离目录验证。新 Skill 包不会自动替换已安装服务，更不会改装旧试点。
 
 ## 自检入口

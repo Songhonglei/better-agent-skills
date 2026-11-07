@@ -12,6 +12,8 @@ Give agents a shared, traceable view of local project knowledge with OpenViking.
 - Synchronize changed sources with locks, journals, original-source readbacks and a five-file incremental change limit. Unchanged sources create no model jobs.
 - Configure login startup and weekday synchronization when requested, after project verification.
 
+Task recovery only accepts HTTP 404 with a complete activity check and matching canonical originals. Other failures block synchronization. Parser options are part of job identity; changing the parser of an existing index still requires a separate review.
+
 The skill manages project documents. Chat capture and conversation-memory hooks are separate, optional integrations.
 
 ## Install the skill
@@ -65,7 +67,7 @@ python3 scripts/selftest.py
 python3 scripts/selftest.py --native-python /path/to/openviking-venv/bin/python --report /local/results.json
 ```
 
-The release has 19 offline regression checks. Native OpenViking 0.5.0 was also tested with three synthetic projects and local fake models, including MCP calls, pagination, incremental sync and six directed cross-account denials. That test reuses existing dependencies; it is not a fresh installation test on every OS or a measurement of semantic accuracy or whole-task token savings.
+The release has 32 offline regression checks, including expired-task recovery, parser-bound job identities and complete task pagination. Native OpenViking 0.5.0 was also tested with three synthetic projects and local fake models, including MCP calls, pagination, incremental sync, recovery from a real missing-task HTTP 404 through canonical-source readbacks without another model job, and six directed cross-account denials. That test reuses existing dependencies; it is not a fresh installation test on every OS or a measurement of semantic accuracy or whole-task token savings.
 
 See [validation.md](references/validation.md) for acceptance criteria and [cli.md](references/cli.md) for parameters, status codes and recovery.
 

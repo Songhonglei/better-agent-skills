@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.3 — 2026-11-07
+
+- Reconcile a journaled task returning HTTP 404 only after refreshing the complete task inventory, rejecting active/overlapping tasks, and verifying every canonical original hash. Preserve other HTTP failures and never resubmit a missing task blindly.
+- Read task inventory through bounded cursor pagination; reject malformed, incomplete or looping pages before submitting work.
+- Include parser options in import job identities and propagate them through initial and incremental sync. Existing-index parser changes remain blocked pending separate review.
+- Extend offline regressions from 19 to 32 checks and native integration with a real missing-task 404 plus zero-model-job recovery.
+- Keep fresh initialization for unrelated projects, independent accounts, one global MCP, mirrored/offline installation and existing runtime preservation.
+
 ## 1.0.2 — 2026-10-20
 
 - Initial public release, based on the audited portable runtime.

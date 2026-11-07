@@ -17,6 +17,7 @@ from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 from types import ModuleType,SimpleNamespace
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 SKILL=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('ovk_bootstrap',SKILL/'scripts/ovk.py')
@@ -203,6 +204,138 @@ class Offline(unittest.TestCase):
         self.assertEqual(target.read_text(),newer);self.assertEqual(list(target.parent.glob('.config.toml.*')),[])
 
 
+class SyncBackend:
+    """Completed synthetic imports, with no network or model access."""
+    def __init__(self, digest):
+        self.digest=digest;self.files={};self.jobs=[];self.submissions=0
+    def tasks(self):return list(self.jobs)
+    def task(self, task_id):
+        for task in self.jobs:
+            if task['task_id']==task_id:return task
+        raise HTTPError('http://fixture',404,'Missing fixture task',{},None)
+    def stored_hash(self,scope,name):return self.files.get(name)
+    def submit(self,path,target):
+        self.submissions+=1
+        files=list(path.glob('*.md')) if path.is_dir() else [path]
+        self.files.update({p.name:self.digest(p.read_bytes()) for p in files})
+        task={'task_id':str(self.submissions),'resource_id':target,'status':'completed'}
+        self.jobs.append(task);return task
+    def remove(self,scope,name,expected):
+        if self.files.get(name)!=expected:raise AssertionError('Unexpected fixture removal')
+        self.files.pop(name)
+
+
+class SyncOffline(unittest.TestCase):
+    def setUp(self):
+        temporary=tempfile.TemporaryDirectory(prefix='ovk-sync-');self.addCleanup(temporary.cleanup)
+        base=Path(temporary.name).resolve();self.root=base/'state';bootstrap.initialize(self.root)
+        self.project=base/'project';self.project.mkdir();self.source=self.project/'one.md'
+        self.source.write_text('# One\nReviewed original.\n')
+        profile=ModuleType('project_profile');profile.ROOT=self.root;profile.SERVICE_ROOT=self.root
+        profile.PROJECT_ID='demo';profile.SCOPE='viking://resources/projects/demo/current';self.scope=profile.SCOPE
+        modules=patch.dict(sys.modules,{'project_profile':profile});modules.start();self.addCleanup(modules.stop)
+        paths=patch.object(sys,'path',[str(runtime),*sys.path]);paths.start();self.addCleanup(paths.stop)
+        for name in ['pilot_state','prepare_sources','import_sources']:
+            spec=importlib.util.spec_from_file_location(name,runtime/(name+'.py'))
+            module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
+        self.sync=sys.modules['import_sources'];self.backend=SyncBackend(self.sync.digest)
+        self.fingerprints={'one.md':self.sync.digest(self.source.read_bytes())};self.backend.files.update(self.fingerprints)
+        self.target=self.scope+'/one'
+        self.journal={'jobs':{self.target:{'target':self.target,'task_id':'expired',
+            'input_hash':self.sync.fingerprint_id(self.fingerprints),'before_task_ids':[],'outcome':'submitted'}}}
+        self.policy={'scope':self.scope,'project':str(self.project),'max_changed_files':5,
+            'parser_args':{'split_content':False},'sources':[{'path':'one.md','file':'one.md','role':'contract','selector':{'mode':'full'}}]}
+    def job(self,**kwargs):
+        return self.sync.ensure_job(self.root,self.backend,self.journal,self.source,self.target,self.fingerprints,self.scope,**kwargs)
+    def synchronize(self):
+        return self.sync.synchronize(self.root,policy=self.policy,backend=self.backend,scan_key='fixture-secret')
+    def test_expired_task_matching_originals_recovers_without_submission(self):
+        self.assertIsNone(self.job());self.assertEqual(self.backend.submissions,0)
+        entry=json.loads((self.root/'evidence/sync-journal.json').read_text())['jobs'][self.target]
+        self.assertEqual(entry['outcome'],'verified_from_content');self.assertIn('recovered_at',entry)
+        self.assertIsNone(self.job());self.assertEqual(self.backend.submissions,0)
+    def test_expired_task_missing_or_different_original_blocks(self):
+        for content in [None,'foreign']:
+            with self.subTest(content=content):
+                self.backend.files['one.md']=content
+                with self.assertRaises(self.sync.StateError):self.job()
+                self.assertEqual(self.journal['jobs'][self.target]['outcome'],'missing_task_unverified')
+                self.assertEqual(self.backend.submissions,0)
+    def test_non_expiry_http_errors_are_preserved(self):
+        for code in [401,403,429,500]:
+            with self.subTest(code=code),patch.object(self.backend,'task',side_effect=HTTPError('http://fixture',code,'fixture',{},None)):
+                with self.assertRaises(HTTPError) as result:self.job()
+                self.assertEqual(result.exception.code,code)
+                self.assertNotEqual(self.journal['jobs'][self.target]['outcome'],'verified_from_content')
+        self.assertEqual(self.backend.submissions,0)
+    def test_active_direct_and_overlapping_tasks_block_recovery(self):
+        for target in [self.target,self.scope,self.target+'/child']:
+            with self.subTest(target=target):
+                self.backend.jobs=[{'task_id':'other','status':'running','resource_id':target}]
+                with self.assertRaises(self.sync.StateError):self.job()
+        self.assertEqual(self.backend.submissions,0)
+    def test_task_inventory_is_refreshed_after_404(self):
+        task={'task_id':'new','resource_id':self.target,'status':'processing_queue'}
+        with patch.object(self.backend,'tasks',side_effect=[[],[task]]) as listing:
+            with self.assertRaises(self.sync.StateError):self.job()
+            self.assertEqual(listing.call_count,2)
+        self.assertEqual(self.backend.submissions,0)
+    def test_failed_original_read_is_not_treated_as_matching(self):
+        with patch.object(self.backend,'stored_hash',side_effect=HTTPError('http://fixture',403,'fixture',{},None)):
+            with self.assertRaises(HTTPError):self.job()
+        self.assertNotEqual(self.journal['jobs'][self.target]['outcome'],'verified_from_content')
+    def test_later_task_page_blocks_new_submission(self):
+        pages=[{'items':[{'task_id':'old','status':'completed'}],'has_more':True,'next_cursor':'next'},
+               {'items':[{'task_id':'active','status':'running','resource_id':self.target}],'has_more':False,'next_cursor':None}]
+        backend=self.sync.LocalBackend(self.root)
+        with patch.object(self.sync,'api',side_effect=pages) as request,patch.object(backend,'submit') as submit:
+            with self.assertRaises(self.sync.StateError):
+                self.sync.ensure_job(self.root,backend,{'jobs':{}},self.source,self.target,self.fingerprints,self.scope)
+            submit.assert_not_called();self.assertEqual(request.call_count,2)
+            self.assertIn('cursor=next',request.call_args.args[0])
+    def test_incomplete_task_inventory_blocks(self):
+        invalid=[{'items':[],'has_more':True,'next_cursor':None},
+                 {'items':[],'has_more':True,'next_cursor':'loop'},
+                 {'items':[],'has_more':'false'},[],{'items':[{}],'has_more':False}]
+        for page in invalid:
+            with self.subTest(page=page),patch.object(self.sync,'api',return_value=page):
+                with self.assertRaises(self.sync.StateError):self.sync.LocalBackend(self.root).tasks()
+    def test_task_pagination_has_a_finite_bound(self):
+        counter=iter(range(101))
+        def page(*args,**kwargs):return {'items':[],'has_more':True,'next_cursor':str(next(counter))}
+        with patch.object(self.sync,'api',side_effect=page) as request:
+            with self.assertRaises(self.sync.StateError):self.sync.LocalBackend(self.root).tasks()
+            self.assertEqual(request.call_count,100)
+    def test_active_task_without_target_blocks(self):
+        self.backend.jobs=[{'task_id':'unknown','status':'running','resource_id':None}]
+        with self.assertRaises(self.sync.StateError):self.job()
+        self.assertEqual(self.backend.submissions,0)
+    def test_parser_arguments_change_job_identity(self):
+        self.journal={'jobs':{}};self.backend.files={}
+        first=self.job(parser_args={'split_content':False});before=self.journal['jobs'][self.target]['input_hash']
+        self.backend.files={}
+        second=self.job(parser_args={});after=self.journal['jobs'][self.target]['input_hash']
+        self.assertNotEqual(first,second);self.assertNotEqual(before,after)
+        self.assertEqual(self.backend.submissions,2)
+    def test_initial_and_incremental_jobs_preserve_parser_args_then_unchanged(self):
+        self.backend.files={}
+        self.assertEqual(self.synchronize()['status'],'complete')
+        self.source.write_text(self.source.read_text()+'\nMaintenance update.\n')
+        self.assertEqual(self.synchronize()['status'],'complete')
+        entries=json.loads((self.root/'evidence/sync-journal.json').read_text())['jobs']
+        self.assertEqual(set(entries),{self.scope,self.target})
+        for entry in entries.values():self.assertEqual(entry['parser_args'],{'split_content':False})
+        before=self.backend.submissions;self.assertEqual(self.synchronize()['status'],'unchanged')
+        self.assertEqual(self.backend.submissions,before)
+    def test_parser_change_still_blocks_before_publication(self):
+        self.backend.files={};self.synchronize()
+        manifest=self.root/'evidence/source-manifest.json';before=manifest.read_bytes()
+        self.policy['parser_args']={}
+        with self.assertRaises(self.sync.StateError):self.synchronize()
+        self.assertEqual(manifest.read_bytes(),before)
+        self.assertEqual(self.backend.submissions,1)
+
+
 class Models(BaseHTTPRequestHandler):
     calls={'embedding':0,'vlm':0}
     def log_message(self,*args):pass
@@ -279,6 +412,22 @@ def native(native_python):
         workspace=work/'alpha';target=workspace/'README.md';target.write_text(target.read_text()+'\nA meaningful maintenance update.\n')
         assert run('project','sync','alpha',timeout=180)['status']=='complete'
         run('verify','alpha','--query','Current marker for alpha','--contains','alpha-one',timeout=240)
+        # Reconcile a journaled-but-missing task through the real 404 API and
+        # canonical text reads, not by a second import or a new model call.
+        registry=json.loads((root/'configs/projects.json').read_text())['projects']
+        alpha=Path(registry['alpha']['data_root']);scope=registry['alpha']['scope']
+        receipt=json.loads((alpha/'evidence/import-receipt.json').read_text())
+        fingerprints=receipt['fingerprints'];options=receipt['parser_args']
+        identity=hashlib.sha256(json.dumps({'fingerprints':fingerprints,'parser_args':options},sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        journal_path=alpha/'evidence/sync-journal.json';journal=json.loads(journal_path.read_text())
+        journal['jobs'][scope]={'target':scope,'input_hash':identity,'parser_args':options,
+            'task_id':'fixture-missing-task','before_task_ids':[],'outcome':'submitted'}
+        journal_path.write_text(json.dumps(journal));(alpha/'evidence/import-receipt.json').unlink()
+        recovery_before=dict(Models.calls)
+        recovered=run('project','sync','alpha',timeout=180)
+        assert recovered['status']=='complete' and recovered['result']['verified_import_tasks']==0
+        assert Models.calls==recovery_before,'Missing-task recovery called a model.'
+        assert json.loads(journal_path.read_text())['jobs'][scope]['outcome']=='verified_from_content'
         before=dict(Models.calls)
         for code in projects:assert run('project','sync',code)['status']=='unchanged'
         assert Models.calls==before,'Unchanged sync called a model.'
@@ -306,6 +455,7 @@ def native(native_python):
                 denials.append(code+' -> '+other)
         result={'passed':True,'projects':projects,'native_version':version,'model_calls':dict(Models.calls),
             'real_provider_calls':0,'three_isolated_accounts':True,'native_directed_account_denials':denials,'single_file_update':True,'unchanged_zero_model_calls':True,
+            'missing_task_real_404_recovered_without_model_jobs':True,
             'system_jobs_applied':False,'full_package_download_tested':False,'native_dependency_source':'existing explicitly provided venv','commands':commands}
         success=True;return result
     except Exception as exc:
@@ -325,7 +475,7 @@ def native(native_python):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--native-python');parser.add_argument('--report');args=parser.parse_args()
-    suite=unittest.defaultTestLoader.loadTestsFromTestCase(Offline);result=unittest.TextTestRunner(stream=sys.stderr,verbosity=2).run(suite)
+    suite=unittest.defaultTestLoader.loadTestsFromModule(sys.modules[__name__]);result=unittest.TextTestRunner(stream=sys.stderr,verbosity=2).run(suite)
     report={'offline':{'passed':result.wasSuccessful(),'tests':result.testsRun,'failures':len(result.failures),'errors':len(result.errors)}}
     if args.native_python and result.wasSuccessful():report['native']=native(str(Path(args.native_python).expanduser().absolute()))
     report['passed']=all(value.get('passed',False) for value in report.values() if isinstance(value,dict))

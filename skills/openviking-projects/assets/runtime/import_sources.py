@@ -33,7 +33,25 @@ class LocalBackend:
         self.root = root
 
     def tasks(self):
-        return api("/api/v1/tasks", root=self.root)
+        tasks, seen, cursor = [], set(), None
+        for _ in range(100):
+            query = {"pagination": "cursor", "limit": 200}
+            if cursor:
+                query["cursor"] = cursor
+            page = api("/api/v1/tasks?" + urlencode(query), root=self.root)
+            if (not isinstance(page, dict) or not isinstance(page.get("items"), list)
+                    or not isinstance(page.get("has_more"), bool)
+                    or any(not isinstance(task, dict) or not isinstance(task.get("task_id"), str)
+                           or not isinstance(task.get("status"), str) for task in page["items"])):
+                raise StateError("Task inventory is invalid; inspect the service before resubmitting.")
+            tasks.extend(page["items"])
+            if not page["has_more"]:
+                return tasks
+            cursor = page.get("next_cursor")
+            if not isinstance(cursor, str) or not cursor or cursor in seen:
+                raise StateError("Task inventory pagination is incomplete; refusing a new import.")
+            seen.add(cursor)
+        raise StateError("Task inventory exceeds the review limit; refusing a new import.")
 
     def task(self, task_id):
         return api("/api/v1/tasks/" + task_id, root=self.root)
@@ -108,15 +126,28 @@ def wait_for(backend, task):
     return task
 
 
-def ensure_job(root, backend, journal, path, target, fingerprints, scope):
+def active_for_target(tasks, target):
+    """Keep the same direct/overlapping-task boundary on submission and recovery."""
+    active, overlaps = [], []
+    for task in tasks:
+        if task["status"] in {"completed", "failed", "cancelled"}:
+            continue
+        resource = task.get("resource_id")
+        if not isinstance(resource, str) or not resource:
+            raise StateError("An active task has no verifiable target; inspect it before importing.")
+        if resource == target:
+            active.append(task)
+        elif target.startswith(resource + "/") or resource.startswith(target + "/"):
+            overlaps.append(task)
+    return active, overlaps
+
+
+def ensure_job(root, backend, journal, path, target, fingerprints, scope, parser_args=None):
     key = target
-    job_hash = fingerprint_id(fingerprints)
+    job_hash = fingerprint_id({"fingerprints": fingerprints, "parser_args": parser_args}) if parser_args else fingerprint_id(fingerprints)
     entry = journal["jobs"].get(key)
     tasks = backend.tasks()
-    active = [task for task in tasks if task.get("resource_id") == target and task["status"] not in {"completed", "failed", "cancelled"}]
-    overlaps = [task for task in tasks if task["status"] not in {"completed", "failed", "cancelled"}
-                and task.get("resource_id") != target and (target.startswith(task.get("resource_id", "!") + "/")
-                or task.get("resource_id", "").startswith(target + "/"))]
+    active, overlaps = active_for_target(tasks, target)
     if overlaps:
         raise StateError("An overlapping parent or child import is active; wait before submitting.")
     if entry and entry["input_hash"] != job_hash and active:
@@ -129,12 +160,30 @@ def ensure_job(root, backend, journal, path, target, fingerprints, scope):
                 raise StateError("Import outcome unresolved; journal cannot identify exactly one submitted task.")
             task_id = entry["task_id"] = candidates[0]["task_id"]
             atomic_json(root / "evidence/sync-journal.json", journal)
-        return wait_for(backend, backend.task(task_id))["task_id"]
+        try:
+            return wait_for(backend, backend.task(task_id))["task_id"]
+        except HTTPError as exc:
+            if exc.code != 404:
+                raise
+            # Refresh the complete inventory after lookup: another job may have
+            # started while the old task record was expiring.
+            active, overlaps = active_for_target(backend.tasks(), target)
+            if active or overlaps:
+                raise StateError("A task is missing while another import is active; inspect before recovery.") from None
+            if not all(backend.stored_hash(scope, name) == value for name, value in fingerprints.items()):
+                entry["outcome"] = "missing_task_unverified"
+                atomic_json(root / "evidence/sync-journal.json", journal)
+                raise StateError("Import task expired and canonical originals differ; review before resubmission.") from None
+            entry.update(outcome="verified_from_content", recovered_at=datetime.now(
+                ZoneInfo("Asia/Shanghai")).isoformat(timespec="seconds"))
+            atomic_json(root / "evidence/sync-journal.json", journal)
+            return None
     if active:
         raise StateError("An unjournaled import is active; inspect it before changing this target.")
     if all(backend.stored_hash(scope, name) == value for name, value in fingerprints.items()):
         return None
-    entry = {"target": target, "input_hash": job_hash, "before_task_ids": [t["task_id"] for t in tasks], "outcome": "submitting"}
+    entry = {"target": target, "input_hash": job_hash, "parser_args": parser_args or {},
+             "before_task_ids": [t["task_id"] for t in tasks], "outcome": "submitting"}
     journal["jobs"][key] = entry
     atomic_json(root / "evidence/sync-journal.json", journal)
     try:
@@ -179,14 +228,16 @@ def synchronize(root=ROOT, *, policy=None, backend=None, scan_key=None, dry_run=
         task_ids = []
         directory = Path(manifest["curated_directory"])
         if not old or (migration and migrate_layout):
-            task = ensure_job(root, backend, journal, directory, scope, fingerprints, scope)
+            task = ensure_job(root, backend, journal, directory, scope, fingerprints, scope,
+                              parser_args=policy.get("parser_args", {}))
             if task:
                 task_ids.append(task)
         else:
             for name in removed:
                 backend.remove(scope, name, old[name])
             for name in changed:
-                task = ensure_job(root, backend, journal, directory / name, scope + "/" + name[:-3], {name: fingerprints[name]}, scope)
+                task = ensure_job(root, backend, journal, directory / name, scope + "/" + name[:-3],
+                                  {name: fingerprints[name]}, scope, parser_args=policy.get("parser_args", {}))
                 if task:
                     task_ids.append(task)
         for name, value in fingerprints.items():
