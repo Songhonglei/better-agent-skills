@@ -2,12 +2,35 @@
 
 Safely diagnose and restore Codex Desktop conversations when project folders exist but show **No chats**, even though titles may still appear under **Recent**.
 
+## Restore after switching GPT accounts
+
+Sign into the destination GPT account in the app, then preview the local recovery:
+
+```sh
+python3 scripts/restore_local_projects.py
+```
+
+After reviewing the preview, fully quit ChatGPT/Codex with **Cmd+Q** and double-click
+**`scripts/restore-local-projects.command`** in Finder, or run:
+
+```sh
+python3 scripts/restore_local_projects.py --apply
+```
+
+Reopen the app and check projects, chat membership and custom sidebar spaces separately.
+The helper preserves existing assignments, backs up first and combines local metadata only.
+It does not sign into accounts or transfer cloud data/access. Missing body files remain
+unavailable; restored membership is not proof of complete conversation content.
+
+CLI options, backup locations and failure recovery: [account-switch recovery](references/account-switch-recovery.md).
+
 ## Features
 
 - Correlates `state_5.sqlite`, rollout JSONL, project assignments, configured model providers, and optional CSV snapshots.
 - Detects the deceptively common provider-mismatch failure where Recent still has titles but every project looks empty.
 - Performs read-only diagnosis while Codex is running and refuses offline repair until the desktop process is stopped.
 - Creates a timestamped backup before changing provider metadata and verifies SQLite integrity and rollout coverage afterward.
+- Restores local project/chat membership and sidebar spaces after GPT account/workspace switches.
 - Documents recovery paths for lost assignments, moved workspaces, archived threads, and schema-compatible database restores.
 
 ## Install
@@ -60,7 +83,7 @@ zsh scripts/codex_project_recovery.sh verify
 
 ## Requirements
 
-macOS, Zsh, SQLite 3, jq, ripgrep, rsync, and Perl. The workflow targets Codex Desktop/ChatGPT Desktop local Codex data.
+macOS, Python 3.9+ (standard library), Zsh and `/bin/ps`. Legacy diagnosis/provider commands also require SQLite 3, jq, ripgrep and Perl. The workflow targets Codex Desktop/ChatGPT Desktop local Codex data.
 
 ## License
 
@@ -70,8 +93,12 @@ MIT — see [LICENSE](LICENSE).
 
 Evan Song · [github.com/Songhonglei](https://github.com/Songhonglei)
 
+## Validation
+
+```sh
+python3 -m unittest discover -s tests -v
+```
+
 ## Changelog
 
-### v1.0.0 — 2026-08-06
-
-- Initial public release.
+See [CHANGELOG.md](CHANGELOG.md).
