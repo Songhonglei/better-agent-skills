@@ -52,7 +52,7 @@ Workflows that help agents collaborate and manage work more effectively — from
 |-------|--------|--------------|
 | [`multica-squad-onboard`](skills/multica-squad-onboard) | **v1.0.0** | Check existing project/squad prerequisites, configure different project-scoped captain and worker instructions, add the shared scheduler, repair the project owner when explicitly authorized, and verify with a read-only preview. |
 | [`multica-squad-load-balancer`](skills/multica-squad-load-balancer) | **v1.0.0** | Filter workers by capability, online runtime and concurrency capacity, dispatch by live load, and verify the delegation chain before business execution. Reconcile existing or uncertain execution instead of automatically reassigning. |
-| [`openviking-projects`](skills/openviking-projects) | **v1.0.3** | Set up local project knowledge with mirror/offline installation, reviewed source lists, one global read-only MCP routed by project code and workspace, and verified incremental synchronization. |
+| [`openviking-projects`](skills/openviking-projects) | **v1.1.1** | Set up local project knowledge with mirror/offline installation, reviewed source lists, one global read-only MCP routed by project code and workspace, and verified incremental synchronization. |
 
 ### 🌐 Cross-container Coordination
 

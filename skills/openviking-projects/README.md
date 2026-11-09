@@ -73,6 +73,8 @@ Project accounts are independent by default. Explicitly choosing a shared accoun
 
 Generated summaries are leads. Read the original source URI and check dates before relying on a conclusion. A snapshot does not prove current production state or grant permission to perform actions. A stale or unavailable index falls back to local files.
 
+For chat-triggered long synchronization, use `sync-all --background` once and follow the returned run ID with `sync-all --status`. Signals and timeouts retain durable outcomes and partial logs; status reconciles force-killed workers after their locks are free. No interrupted job is retried automatically.
+
 ## Validation
 
 ```sh
@@ -80,7 +82,7 @@ python3 scripts/selftest.py
 python3 scripts/selftest.py --native-python /path/to/openviking-venv/bin/python --report /local/results.json
 ```
 
-The release has 37 offline regression checks, including five optional-dashboard deployment checks, plus expired-task recovery, parser-bound job identities and complete task pagination. Native OpenViking 0.5.0 was also tested with three synthetic projects and local fake models, including MCP calls, pagination, incremental sync, recovery from a real missing-task HTTP 404 through canonical-source readbacks without another model job, and six directed cross-account denials. That test reuses existing dependencies; it is not a fresh installation test on every OS or a measurement of semantic accuracy or whole-task token savings.
+The release has 43 offline regression checks, including five optional-dashboard deployment checks and six real-process interruption/background checks, plus expired-task recovery, parser-bound job identities and complete task pagination. Native OpenViking 0.5.0 was also tested with three synthetic projects and local fake models, including MCP calls, pagination, incremental sync, recovery from a real missing-task HTTP 404 through canonical-source readbacks without another model job, and six directed cross-account denials. That test reuses existing dependencies; it is not a fresh installation test on every OS or a measurement of semantic accuracy or whole-task token savings.
 
 See [validation.md](references/validation.md) for acceptance criteria and [cli.md](references/cli.md) for parameters, status codes and recovery.
 

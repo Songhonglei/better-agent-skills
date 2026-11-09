@@ -6,7 +6,7 @@ description: >
 
 # OpenViking 项目知识管理
 
-- **Version**: 1.1.0
+- **Version**: 1.1.1
 - **License**: MIT
 - **Author**: Evan Song · [github.com/Songhonglei](https://github.com/Songhonglei)
 - **Repository**: https://github.com/Songhonglei/better-agent-skills/tree/main/skills/openviking-projects
@@ -34,7 +34,7 @@ description: >
 4. **安装与模型验收。** 先输出安装计划；在已授权范围内安装。使用 `doctor --probe-models` 分别验证两个模型及 embedding 维度，再启动服务，确认 `/ready`。配置仅绑定 loopback；需要远程共享时另做网络、TLS 和身份方案，不顺手开放端口。
 5. **项目资料先治理。** 确认当前入口/状态、源码来源和历史边界。资料散乱时先加导航与状态页，不要求为了接入统一全部源码。选择通常 6–20 份文档或选区，显式白名单，不遍历整个项目入库。数据、录制、oracle、答案、凭据、依赖、构建/备份和聊天留在索引范围外。
 6. **接入与验证。** `project add --dry-run` → 注册 → `project sync --dry-run` → 首次同步 → 真实 MCP 验收。全局只注册一次名为 `openviking` 的 MCP；后续项目只登记 code、工作区和白名单，无须各建 MCP。默认独立账号；同一开发者可明确选择 shared，但要说明共享账号只由 MCP 路由限制范围，不能声称原生账号隔离。统一 MCP 每次携带 `project_code` 和绝对 `workspace_path`，禁止进程级“当前项目”开关。
-7. **通过后再启用日常任务。** 注册不自动定时同步。验收完成后按用户要求启用，推荐工作日北京时间 12:30。任务运行中等待同一进程；complete/unchanged 才成功，already_running 跳过。未知提交查 journal 和任务 ID，不重复提交；任务记录返回 404 时，先完整分页确认没有同目标或重叠的活动任务，再逐份核验原文哈希，一致才恢复。403 等其他错误、原文不同或任务清单不完整均阻断；失败不绕过校验或扩大五份变更上限。
+7. **通过后再启用日常任务。** 注册不自动定时同步。验收完成后按用户要求启用，推荐工作日北京时间 12:30。聊天或手工长任务用 `sync-all --background` 启动一次，再用 `sync-all --status` 按返回 run_id 跟进；系统时钟仍用 `sync-all --scheduled`。任务运行中等待同一进程；complete/unchanged 才成功，already_running 跳过。中断/超时写入终态、历史回执和即时日志；强制结束后的遗留 running 由 status 在锁释放后标记 interrupted，不自动重试。未知提交查 journal 和任务 ID，不重复提交；任务记录返回 404 时，先完整分页确认没有同目标或重叠的活动任务，再逐份核验原文哈希，一致才恢复。403 等其他错误、原文不同或任务清单不完整均阻断；失败不绕过校验或扩大五份变更上限。
 
 ## 调用原则
 

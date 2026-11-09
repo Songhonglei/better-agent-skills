@@ -26,7 +26,7 @@
 | project add CODE | `--workspace PATH`、`--policy PATH` 必填；`--identity isolated` 默认项目独立账号，shared 是显式共享账号；`--dry-run` 校验策略并预览，不建账号/项目状态；CODE 为 1–48 位小写字母、数字或连字符，首位非连字符 |
 | project sync CODE | `--dry-run` 显示变化，不调用模型；省略时同步该项目，增量每轮最多 5 份变更 |
 | project alias CODE | `--workspace PATH` 必填，登记额外 clone 路径；复用主资料索引，不会同步这个分支 |
-| sync-all | 只同步已启用定时列表；`--scheduled` 是时钟任务入口，只在配置的工作日和分钟、当日未尝试时运行；手动诊断通常省略 |
+| sync-all | `--background` 独立后台启动并返回 run_id；`--status` 查询并核对中断回执；二者互斥且不可与 --scheduled 混用。只同步已启用定时列表；`--scheduled` 是时钟任务入口，只在配置的工作日和分钟、当日未尝试时运行；手动诊断通常省略 |
 | mcp | 默认预览全局 openviking；`--apply` 才写配置；`--config-file PATH` 指定其他目标；兼容参数 `--workspace PATH` 只校验目录；不覆盖另一套同名部署 |
 | autostart | 默认生成登录启动内容；`--apply` 安装并加载系统任务，需要用户授权；现有任务拒绝覆盖 |
 | schedule | `--enable CODE` / `--disable CODE` 可重复；`--at 12:30`、`--timezone Asia/Shanghai`；默认预览，`--apply` 保存列表并确保时钟任务存在；enable 要求当前快照已 verify |
@@ -37,7 +37,8 @@
 ## 状态、退出与恢复
 
 - 0：操作完成或预览成功；重复配置可返回 already_configured。status 的 0 代表读取状态成功，应另外检查 ready。时钟未到期可无输出退出。
-- 1：已知操作失败；同步 complete/unchanged 才成功，failed/partial 需逐项检查，skipped/already_running 等待原进程，不追加重试。
+- 1：已知操作失败或中断回执；同步 complete/unchanged 才成功，failed/partial 需逐项检查，skipped/already_running 等待原进程，不追加重试。
+- 130：捕获中断信号，核对回执与 journal 后再决定后续。
 - 2：参数解析失败。透传的子命令沿用其非零失败码，不能把其他非零值当成功。
 - 安装失败看 logs/install-*.log；服务未 ready 看 logs/server.log；同步失败看项目 logs/scheduled-sync.log 和 evidence/sync-journal.json。提交结果未知先查已有任务，不盲目重提。只有已记录任务的 HTTP 404、完整活动任务清单和全部 canonical 原文哈希一致才自动恢复；403、原文不匹配或任务清单异常继续失败。
 - 已有运行时指纹不同会拒绝覆盖；先保存配置/凭据和数据，审阅升级差异并用隔离目录验证。新 Skill 包不会自动替换已安装服务，更不会改装旧试点。

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1 — 2026-11-09
+
+- Run chat-triggered synchronization in a detached worker with a run ID and duplicate-start protection. Keep the existing system clock foreground entrypoint.
+- Persist interrupted/failed receipts and stream child logs immediately; terminate only owned child process groups on signal or timeout, leaving server-side imports for journal reconciliation.
+- Archive prior receipts byte-for-byte. Status queries reconcile stale running receipts only after the run lock is free; interrupted runs never automatically resubmit work.
+- Add real-process regressions for signals, forced termination, timeout, starter exit and aggregate/project interruption state.
+- Preserve opt-in Studio, project scope, credentials, parser and incremental change limits.
+
 ## 1.1.0 — 2026-11-08
 
 - Bundle the enhanced local Studio as an optional component, activated for monitoring, Web dashboard and advanced-Studio requests. Ordinary installation and project onboarding do not deploy or start it.

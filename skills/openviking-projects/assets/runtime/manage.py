@@ -22,6 +22,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 from zoneinfo import ZoneInfo
 from project_registry import SERVICE_ROOT as ROOT, REGISTRY_PATH, load_registry, project_entry
 from source_selection import package_name, select_text, validate_limits
+from sync_run import background, durable_run, interrupt_signals, run_logged, sync_status, SyncInterrupted
 
 
 def atomic(path,value):
@@ -183,25 +184,23 @@ def sync_one(code,dry_run=False):
     with (root/'evidence/scheduled-sync.lock').open('a+') as stream:
         try:fcntl.flock(stream,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:return {'status':'skipped','reason':'already_running'}
-        started=datetime.now().astimezone().isoformat();record={'status':'running','started_at':started,'project_code':code}
-        if not dry_run:atomic(root/'evidence/scheduled-sync-last.json',record)
-        try:
+        def execute():
             if not dry_run:ensure_ready()
             command=[sys.executable,str(ROOT/'scripts/import_sources.py')]+(['--dry-run'] if dry_run else [])
-            with (root/'logs/scheduled-sync.log').open('a+') as log:
-                log.write('\n'+started+'\n');log.flush();position=log.tell()
-                result=subprocess.run(command,stdout=log,stderr=subprocess.STDOUT,cwd=root,timeout=3600,
-                    env={**os.environ,'OVK_HOME':str(ROOT),'OVK_PROJECT':code})
-                log.seek(position);lines=[line for line in log.read().splitlines() if line.strip()]
-            if result.returncode:raise RuntimeError('Sync failed; inspect this project log and journal before any retry.')
+            returncode,lines=run_logged(command,root/'logs/scheduled-sync.log',cwd=root,timeout=3600,
+                env={**os.environ,'OVK_HOME':str(ROOT),'OVK_PROJECT':code})
+            if returncode:raise RuntimeError('Sync failed; inspect this project log and journal before any retry.')
             outcome=json.loads(lines[-1])
-            if dry_run:return outcome
-            if outcome.get('status') not in {'complete','unchanged'}:raise RuntimeError('Sync outcome is not confirmed.')
-            record.update(status=outcome['status'],result=outcome)
-        except Exception as exc:
-            if dry_run:raise
-            record.update(status='failed',error_type=type(exc).__name__,error='Sync did not complete; preserve project logs/journal and reconcile.')
-        record['finished_at']=datetime.now().astimezone().isoformat();atomic(root/'evidence/scheduled-sync-last.json',record)
+            if not dry_run and outcome.get('status') not in {'complete','unchanged'}:raise RuntimeError('Sync outcome is not confirmed.')
+            return outcome
+        if dry_run:return execute()
+        with interrupt_signals(), durable_run(root/'evidence/scheduled-sync-last.json',
+                {'project_code':code},atomic) as record:
+            try:
+                outcome=execute();record.update(status=outcome['status'],result=outcome)
+            except Exception as exc:
+                record.update(status='failed',error_type=type(exc).__name__,recovery_required=True,
+                    error='Sync did not complete; preserve project logs/journal and reconcile.')
         return record
 
 
@@ -209,19 +208,39 @@ def sync_all(scheduled=False):
     config=json.loads((ROOT/'configs/scheduled-projects.json').read_text());now=datetime.now(ZoneInfo(config.get('timezone','Asia/Shanghai')))
     if scheduled:
         if now.weekday() not in config.get('weekdays',[0,1,2,3,4]) or now.strftime('%H:%M')!=config.get('at','12:30'):return None
-    with lock('scheduled-all.lock'):
+    with interrupt_signals(),lock('scheduled-all.lock'):
         stamp=ROOT/'evidence/scheduled-last-date.json'
         if scheduled and stamp.exists() and json.loads(stamp.read_text()).get('date')==now.date().isoformat():return None
         names=config.get('enabled_projects');entries=load_registry()
         if not isinstance(names,list) or len(names)!=len(set(names)) or any(n not in entries for n in names):raise ValueError('Invalid enabled project list; no sync was started.')
         if scheduled:atomic(stamp,{'date':now.date().isoformat(),'status':'attempted'})
-        record={'started_at':datetime.now().astimezone().isoformat(),'status':'running','projects':{}}
-        path=ROOT/'evidence/scheduled-sync-all-last.json';atomic(path,record)
-        for name in names:
-            record['projects'][name]=sync_one(name);atomic(path,record)
-        states={item['status'] for item in record['projects'].values()}
-        record.update(status='failed' if 'failed' in states else 'partial' if 'skipped' in states else 'complete' if 'complete' in states else 'unchanged',finished_at=datetime.now().astimezone().isoformat())
-        atomic(path,record);return record
+        path=ROOT/'evidence/scheduled-sync-all-last.json'
+        with durable_run(path,{'projects':{}},atomic,run_id=os.environ.get('OVK_SYNC_RUN_ID')) as record:
+            for name in names:
+                record['current_project']=name
+                atomic(path,record)
+                try:record['projects'][name]=sync_one(name)
+                except BaseException:
+                    receipt=Path(entries[name]['data_root'])/'evidence/scheduled-sync-last.json'
+                    saved=json.loads(receipt.read_text()) if receipt.exists() else {}
+                    if saved.get('started_at') and datetime.fromisoformat(saved['started_at'])>=datetime.fromisoformat(record['started_at']):
+                        record['projects'][name]=saved
+                    else:
+                        record['projects'][name]={'status':'interrupted','recovery_required':True,
+                            'error':'No current-run project receipt; inspect the journal.'}
+                    raise
+                atomic(path,record)
+            states={item['status'] for item in record['projects'].values()}
+            record.update(status='failed' if 'failed' in states else 'partial' if 'skipped' in states else 'complete' if 'complete' in states else 'unchanged')
+        return record
+
+
+def sync_all_status():
+    result=sync_status(ROOT/'evidence/scheduled-sync-all-last.json',ROOT/'evidence/scheduled-all.lock',atomic)
+    for code,entry in load_registry().items():
+        root=Path(entry['data_root']);path=root/'evidence/scheduled-sync-last.json'
+        if path.exists():sync_status(path,root/'evidence/scheduled-sync.lock',atomic)
+    return result
 
 
 def mcp_config(workspace=None,apply=False,config_path=None):
@@ -313,6 +332,7 @@ def main():
     p=commands.add_parser('sync');p.add_argument('code');p.add_argument('--dry-run',action='store_true')
     p=commands.add_parser('alias');p.add_argument('code');p.add_argument('--workspace',required=True)
     p=sub.add_parser('sync-all');p.add_argument('--scheduled',action='store_true')
+    modes=p.add_mutually_exclusive_group();modes.add_argument('--background',action='store_true');modes.add_argument('--status',action='store_true')
     p=sub.add_parser('mcp');p.add_argument('--workspace',help='Optional workspace check; registration remains global');p.add_argument('--config-file');p.add_argument('--apply',action='store_true')
     p=sub.add_parser('autostart');p.add_argument('--apply',action='store_true')
     p=sub.add_parser('schedule');p.add_argument('--enable',action='append',default=[]);p.add_argument('--disable',action='append',default=[]);p.add_argument('--at',default='12:30');p.add_argument('--timezone',default='Asia/Shanghai');p.add_argument('--apply',action='store_true')
@@ -360,7 +380,15 @@ def main():
                 if existing and existing['project_code']!=args.code:raise ValueError('Alias belongs to another project.')
                 if str(alias) not in entries[args.code]['workspace_roots']:entries[args.code]['workspace_roots'].append(str(alias))
                 atomic(REGISTRY_PATH,{'schema_version':1,'projects':entries});result={'status':'alias-registered','project_code':args.code,'workspace':str(alias)}
-    elif args.command=='sync-all':result=sync_all(args.scheduled)
+    elif args.command=='sync-all':
+        if args.status:
+            if args.scheduled:parser.error('--status cannot be combined with --scheduled')
+            result=sync_all_status()
+        elif args.background:
+            if args.scheduled:parser.error('--background cannot be combined with --scheduled')
+            command=[sys.executable,str(ROOT/'scripts/manage.py'),'sync-all']
+            result=background(command,ROOT/'evidence/scheduled-sync-all-last.json',ROOT/'evidence/scheduled-all.lock',atomic,cwd=ROOT,env={**os.environ,'OVK_HOME':str(ROOT)})
+        else:result=sync_all(args.scheduled)
     elif args.command=='mcp':result=mcp_config(args.workspace,args.apply,args.config_file)
     elif args.command=='autostart':result=install_job('service',args.apply)
     elif args.command=='schedule':
@@ -388,12 +416,15 @@ def main():
         return subprocess.call(command,env={**os.environ,'OVK_HOME':str(ROOT)})
     else:raise ValueError('Unknown operation.')
     if result is not None:print(json.dumps(result,ensure_ascii=False,indent=2))
-    return int(isinstance(result,dict) and result.get('status') in {'failed','partial'})
+    return int(isinstance(result,dict) and result.get('status') in {'failed','partial','interrupted'})
 
 
 if __name__=='__main__':
     os.umask(0o077)
     try:raise SystemExit(main())
+    except SyncInterrupted:
+        print(json.dumps({'status':'interrupted','message':'Inspect the durable receipt and journal before retrying.'}),file=sys.stderr)
+        raise SystemExit(130)
     except (ValueError,RuntimeError,OSError,KeyError,subprocess.SubprocessError) as exc:
         print(json.dumps({'status':'failed','error_type':type(exc).__name__,'message':str(exc) if isinstance(exc,(ValueError,RuntimeError)) else 'Local operation failed; inspect private evidence and logs before retrying.'},ensure_ascii=False),file=sys.stderr)
         raise SystemExit(1)

@@ -32,6 +32,29 @@ sync-all 只执行已启用列表，不自动执行所有注册项目。每项�
 
 白名单移除仅允许删除本程序拥有且哈希匹配的目标；出现额外文件/子目录或来源冲突时拒绝。删除源文件但没有审阅更新 policy 会被阻断，而不是自动扩大或猜测白名单。
 
+## 聊天任务与中断恢复
+
+聊天触发或手工执行长同步时，用独立后台入口：
+
+```sh
+python3 <skill>/scripts/ovk.py sync-all --background
+python3 <skill>/scripts/ovk.py sync-all --status
+```
+
+首条命令返回 run_id、PID 和回执位置，表示已启动，不表示同步成功；重复启动返回 already_running。
+后续只查同一个 run_id，逐项目本轮 complete/unchanged 才成功。启动方退出不影响独立 worker。
+`--background`、`--status` 不能与系统时钟的 `--scheduled` 混用；不会另建定时任务。
+
+SIGTERM/SIGINT/SIGHUP 会标记 interrupted；超时标记 failed 并要求核验。子进程输出即时写入
+项目 scheduled-sync.log 和共用 sync-background.log。日志包含原始子进程诊断，只保存在私有状态目录，
+排障输出前先脱敏。清理仅针对本轮创建的进程组，不停止共用 OpenViking 服务；服务端已提交任务
+可能继续运行，重新同步前仍须查 journal 和活动任务。
+
+SIGKILL、断电无法现场收尾；下一次 status 会在 worker 不存在、运行锁可取得时将遗留 running
+改为 interrupted，归档原始回执。旧结果保存在 evidence/sync-history/，新运行记录 previous_run。
+不要把旧回执当成新一轮成功；状态核对不会启动或重试同步。再次执行须来自原有调度或用户授权，
+并沿用 journal、原文/指纹校验和变更上限，不清空历史碰运气。
+
 ## 登录启动与工作日调度
 
 用户有此需求时才启用，先给出生成内容：

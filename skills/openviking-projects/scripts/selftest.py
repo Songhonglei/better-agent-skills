@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 import socket
+import signal
 import subprocess
 import sys
 import tempfile
@@ -385,6 +386,118 @@ class SyncOffline(unittest.TestCase):
         self.assertEqual(self.backend.submissions,1)
 
 
+class InterruptionOffline(unittest.TestCase):
+    def setUp(self):
+        temporary=tempfile.TemporaryDirectory(prefix='ovk-interruption-');self.addCleanup(temporary.cleanup)
+        self.root=Path(temporary.name).resolve();(self.root/'evidence').mkdir();(self.root/'logs').mkdir()
+        self.path=self.root/'evidence/scheduled-sync-all-last.json';self.lock=self.root/'evidence/scheduled-all.lock'
+        self.run=sys.modules['sync_run']
+    def read(self):return json.loads(self.path.read_text())
+    def wait(self,predicate):
+        deadline=time.monotonic()+8
+        while time.monotonic()<deadline:
+            if predicate():return
+            time.sleep(0.03)
+        self.fail('Timed out waiting for the owned fixture worker.')
+    def worker(self,body):
+        script=self.root/'worker.py'
+        script.write_text('''import os,sys,json,time,fcntl
+from pathlib import Path
+sys.path.insert(0,sys.argv[2])
+from sync_run import *
+root=Path(sys.argv[1]);path=root/'evidence/scheduled-sync-all-last.json'
+def write(path,value):
+    temporary=path.with_suffix('.tmp');temporary.write_text(json.dumps(value));os.replace(temporary,path)
+try:
+    with interrupt_signals(),(root/'evidence/scheduled-all.lock').open('a+') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        with durable_run(path,{'projects':{}},write,run_id=os.environ.get('OVK_SYNC_RUN_ID')) as record:
+'''+''.join('            '+line+'\n' for line in body.splitlines())+'''
+except SyncInterrupted:sys.exit(130)
+''')
+        return [sys.executable,str(script),str(self.root),str(runtime)]
+    def test_durable_run_archives_exact_old_receipt_and_rejects_unconfirmed_success(self):
+        old={'status':'running','started_at':'old-run','projects':{}}
+        manager.atomic(self.path,old)
+        with self.run.durable_run(self.path,{},manager.atomic) as record:
+            record['status']='complete'
+        self.assertEqual(self.read()['status'],'complete')
+        self.assertEqual(json.loads(Path(record['previous_run']['receipt']).read_text()),old)
+        with self.run.durable_run(self.path,{},manager.atomic):pass
+        self.assertEqual(self.read()['status'],'interrupted')
+        self.assertTrue(self.read()['recovery_required'])
+    def test_signal_marks_interrupted_and_keeps_partial_child_log(self):
+        command=self.worker("run_logged([sys.executable,'-u','-c',\"import time;print('partial-log',flush=True);time.sleep(60)\"],root/'logs/child.log',timeout=60)\nrecord['status']='complete'")
+        child=subprocess.Popen(command,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        try:
+            log=self.root/'logs/child.log'
+            self.wait(lambda:log.exists() and 'partial-log' in log.read_text())
+            child.send_signal(signal.SIGTERM);self.assertNotEqual(child.wait(timeout=8),0)
+            self.assertEqual(self.read()['status'],'interrupted')
+            self.assertEqual(self.read()['signal'],signal.SIGTERM)
+            self.assertIn('partial-log',log.read_text())
+        finally:
+            if child.poll() is None:child.kill();child.wait(timeout=5)
+    def test_killed_worker_status_reconciles_only_after_lock_is_free(self):
+        child=subprocess.Popen(self.worker("time.sleep(60)"),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        try:
+            self.wait(lambda:self.path.exists())
+            before=self.path.read_bytes()
+            self.assertEqual(self.run.sync_status(self.path,self.lock,manager.atomic)['status'],'running')
+            self.assertEqual(self.path.read_bytes(),before)
+            child.kill();child.wait(timeout=5)
+            result=self.run.sync_status(self.path,self.lock,manager.atomic)
+            self.assertEqual(result['status'],'interrupted')
+            self.assertTrue(result['recovery_required'])
+            self.assertEqual(Path(result['interrupted_receipt']).read_text(),before.decode())
+        finally:
+            if child.poll() is None:child.kill();child.wait(timeout=5)
+    def test_background_survives_starter_exit_and_duplicate_start_is_rejected(self):
+        command=self.worker("print('detached-ready',flush=True)\nwhile not (root/'release').exists():time.sleep(0.03)\nrecord['status']='unchanged'")
+        launcher=self.root/'launcher.py'
+        launcher.write_text("import sys,json\nfrom pathlib import Path\nsys.path.insert(0,"+repr(str(runtime))+")\nfrom sync_run import background\nroot=Path("+repr(str(self.root))+")\ndef write(path,value):\n p=path.with_suffix('.tmp');p.write_text(json.dumps(value));p.replace(path)\nprint(json.dumps(background("+repr(command)+",root/'evidence/scheduled-sync-all-last.json',root/'evidence/scheduled-all.lock',write)))\n")
+        launched=subprocess.run([sys.executable,str(launcher)],capture_output=True,text=True,timeout=10)
+        self.assertEqual(launched.returncode,0,launched.stderr);result=json.loads(launched.stdout)
+        worker=json.loads(self.path.with_suffix('.worker.json').read_text())
+        try:
+            self.assertIn(result['status'],{'started','starting'})
+            self.assertTrue(self.run.worker_alive(worker))
+            again=self.run.background(command,self.path,self.lock,manager.atomic)
+            self.assertEqual(again['reason'],'already_running')
+            self.assertEqual(again['run_id'],result['run_id'])
+            (self.root/'release').touch()
+            self.wait(lambda:self.read()['status']=='unchanged')
+            self.assertEqual(self.read()['run_id'],result['run_id'])
+            self.assertIn('detached-ready',(self.root/'logs/sync-background.log').read_text())
+        finally:
+            if self.run.worker_alive(worker):os.kill(worker['pid'],signal.SIGTERM)
+    def test_timeout_is_failed_and_partial_output_is_preserved(self):
+        with self.assertRaises(subprocess.TimeoutExpired):
+            with self.run.durable_run(self.path,{},manager.atomic):
+                self.run.run_logged([sys.executable,'-u','-c',"import time;print('timeout-log');time.sleep(60)"],self.root/'logs/child.log',timeout=0.3)
+        self.assertEqual(self.read()['status'],'failed')
+        self.assertEqual(self.read()['error_type'],'TimeoutExpired')
+        self.assertIn('timeout-log',(self.root/'logs/child.log').read_text())
+    def test_aggregate_preserves_interrupted_project_receipt(self):
+        SyncInterrupted=self.run.SyncInterrupted
+        project=self.root/'projects/alpha';(project/'evidence').mkdir(parents=True)
+        receipt={'status':'interrupted','run_id':'project-run','project_code':'alpha','started_at':'2099-01-01T00:00:00+00:00'}
+        manager.atomic(project/'evidence/scheduled-sync-last.json',receipt)
+        manager.atomic(self.root/'configs.json',{})
+        (self.root/'configs').mkdir();manager.atomic(self.root/'configs/scheduled-projects.json',{'enabled_projects':['alpha']})
+        entries={'alpha':{'data_root':str(project)}}
+        with patch.object(manager,'ROOT',self.root),patch.object(manager,'load_registry',return_value=entries),patch.object(manager,'sync_one',side_effect=SyncInterrupted(signal.SIGTERM)):
+            with self.assertRaises(SyncInterrupted):manager.sync_all()
+        self.assertEqual(self.read()['status'],'interrupted')
+        self.assertEqual(self.read()['projects']['alpha'],receipt)
+        receipt.update(status='complete',started_at='2000-01-01T00:00:00+00:00')
+        manager.atomic(project/'evidence/scheduled-sync-last.json',receipt)
+        with patch.object(manager,'ROOT',self.root),patch.object(manager,'load_registry',return_value=entries),patch.object(manager,'sync_one',side_effect=SyncInterrupted(signal.SIGTERM)):
+            with self.assertRaises(SyncInterrupted):manager.sync_all()
+        self.assertEqual(self.read()['projects']['alpha']['status'],'interrupted')
+        self.assertNotIn('run_id',self.read()['projects']['alpha'])
+
+
 class Models(BaseHTTPRequestHandler):
     calls={'embedding':0,'vlm':0}
     def log_message(self,*args):pass
@@ -485,6 +598,22 @@ def native(native_python):
         run('mcp','--config-file',str(config_file),'--apply')
         assert run('mcp','--workspace',str(work/'beta'),'--config-file',str(config_file),'--apply')['status']=='already_configured'
         run('autostart');run('schedule','--enable','alpha')
+        # Only this disposable fixture enables projects. The production
+        # scheduler/credentials and system jobs are never changed by the test.
+        bootstrap.write_json(root/'configs/scheduled-projects.json',{'enabled_projects':projects})
+        before_background=dict(Models.calls)
+        launched=run('sync-all','--background',timeout=20)
+        assert launched['status'] in {'started','starting'}
+        deadline=time.monotonic()+60
+        while time.monotonic()<deadline:
+            background_result=run('sync-all','--status',timeout=15)
+            assert background_result['run_id']==launched['run_id']
+            if background_result['status'] not in {'starting','running'}:break
+            time.sleep(0.1)
+        else:raise AssertionError('Detached native sync did not finish.')
+        assert background_result['status']=='unchanged'
+        assert all(p['status']=='unchanged' for p in background_result['projects'].values())
+        assert Models.calls==before_background,'Unchanged background sync called a model.'
         # Verify every native directed account pair with an existing source URI.
         from urllib.request import Request,urlopen
         from urllib.error import HTTPError
@@ -505,6 +634,7 @@ def native(native_python):
         result={'passed':True,'projects':projects,'native_version':version,'model_calls':dict(Models.calls),
             'real_provider_calls':0,'three_isolated_accounts':True,'native_directed_account_denials':denials,'single_file_update':True,'unchanged_zero_model_calls':True,
             'missing_task_real_404_recovered_without_model_jobs':True,
+            'detached_sync_survived_launcher_exit':True,'detached_sync_run_id_verified':True,
             'system_jobs_applied':False,'full_package_download_tested':False,'native_dependency_source':'existing explicitly provided venv','commands':commands}
         success=True;return result
     except Exception as exc:
