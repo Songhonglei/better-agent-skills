@@ -6,7 +6,7 @@ A growing, security-conscious collection of portable agent skills — from
 zero-dependency environment diagnostics to cross-tool memory transfer and
 multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 
-[![Skills](https://img.shields.io/badge/skills-17-blue)](https://github.com/Songhonglei/better-agent-skills/tree/main/skills)
+[![Skills](https://img.shields.io/badge/skills-18-blue)](https://github.com/Songhonglei/better-agent-skills/tree/main/skills)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Author](https://img.shields.io/badge/author-Evan%20Song-orange)](https://github.com/Songhonglei)
 
@@ -23,6 +23,7 @@ multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 | [`init‑hooks`](skills/init-hooks) | **v1.0.0** | Run scripts automatically on every container/host boot — survives gateway restarts, container restarts and rebuilds. Registry-driven, idempotent, with inline / local-script / remote-CDN hook types. |
 | [`subagent‑timeout‑config`](skills/subagent-timeout-config) | **v1.0.0** | One-click subagent timeout configurator for OpenClaw with preset profiles. |
 | [`claw‑memory‑manager`](skills/claw-memory-manager) | **v1.1.0** | One-command management of OpenClaw built-in memory features. Configure Dreaming (Light→REM→Deep auto consolidation) with tunable half-life, max-age, IANA timezone. |
+| [`consolidate‑memory`](skills/consolidate-memory) | **v1.0.0-wb** | Reflective memory housekeeping for WorkBuddy — merge duplicates, retire stale entries, fix relative dates and prune a bloated MEMORY.md back under its cap. Backs up first, applies fixes one at a time. |
 
 ### 🪪 Agent Identity & Profile
 
@@ -112,6 +113,7 @@ curl -sL https://github.com/Songhonglei/better-agent-skills/archive/refs/heads/m
 | Switching from Tool A to Tool B, don't want to retrain | [`copy‑my‑profile`](skills/copy-my-profile) |
 | Agent runs out of context too fast | [`token‑slim`](skills/token-slim) |
 | Want agent to remember things better across days | [`claw‑memory‑manager`](skills/claw-memory-manager) |
+| Memory has grown bloated, duplicated or stale | [`consolidate‑memory`](skills/consolidate-memory) |
 | Lost conversation history after crash | [`session‑recovery`](skills/session-recovery) |
 | Multiple agents need to share knowledge | [`collective‑memory`](skills/collective-memory) |
 | Multiple agents need to call each other | [`agent‑team‑mesh`](skills/agent-team-mesh) |
