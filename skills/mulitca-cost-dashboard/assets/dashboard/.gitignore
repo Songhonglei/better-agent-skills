@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+web-dist/
+*.log
+usage.json
+*.key
+*-secret
+.DS_Store
