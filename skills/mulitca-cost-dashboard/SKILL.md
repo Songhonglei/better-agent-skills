@@ -9,7 +9,7 @@ description: >
 
 # Multica 费用大盘
 
-- **Version** 1.0.0
+- **Version** 1.0.1
 - **License** MIT
 - **Author** Evan Song · [GitHub](https://github.com/Songhonglei)
 - **Repository** [better-agent-skills](https://github.com/Songhonglei/better-agent-skills)

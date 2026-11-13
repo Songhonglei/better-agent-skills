@@ -63,8 +63,8 @@ export function splitSnapshot(snapshot, budget) {
   if (Object.keys(counts).some((kind) => counts[kind] !== snapshot.expectedRows?.[kind]))
     throw new Error('快照 expectedRows 与实际行数不一致');
   assertUniqueKeys(snapshot);
-  if (!Number.isSafeInteger(budget) || budget < 1024 * 1024)
-    throw new Error('分块预算不能小于 1 MiB');
+  if (!Number.isSafeInteger(budget) || budget < 256 * 1024)
+    throw new Error('分块预算不能小于 256 KiB');
   const placeholder = randomUUID();
   // Reserve final-chunk failures and generous index/JSON overhead in every chunk.
   const envelopeBytes = byteLength(makeChunk(snapshot, placeholder, 9999, 10000, emptyRows())) + 1024;

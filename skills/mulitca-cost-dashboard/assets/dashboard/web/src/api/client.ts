@@ -38,7 +38,9 @@ export type DashboardApi = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, init);
+  const response = await fetch(path, init).catch(() => {
+    throw new Error('无法连接大盘，请检查服务和网络后重试');
+  });
   if (!response.ok) {
     const body = await response.json().catch(() => ({})) as { error?: string };
     throw new Error(body.error ?? `请求失败 (${response.status})，请检查服务状态后刷新`);
