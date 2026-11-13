@@ -147,12 +147,13 @@ export class CliRunner {
       options.signal?.addEventListener("abort", onAbort, { once: true });
       child.stdout.on("data", (chunk) => stdout.push(chunk));
       child.stderr.on("data", (chunk) => stderr.push(chunk));
-      child.once("error", () => {
-        const message = "CLI command could not be started";
+      child.once("error", (error) => {
+        const message = `CLI command could not be started (${command}: ${error.code ?? "unknown error"}). Check MULTICA_BIN and PATH.`;
         this.logger.error(message);
         finish(() => reject(new CliCommandError(message)));
       });
       child.once("close", (exitCode) => {
+        if (settled) return;
         const result = {
           stdout: Buffer.concat(stdout).toString("utf8"),
           stderr: Buffer.concat(stderr).toString("utf8"),

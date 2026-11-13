@@ -155,9 +155,9 @@ export function registerExpenseRoutes(app: FastifyInstance, dependencies: Expens
     const parsed = (isV2 ? snapshotSchemaV2 : snapshotSchemaV1).safeParse(request.body);
     if (!parsed.success)
       return reply.code(400).send({ error: 'usage.json 快照无效', details: parsed.error.flatten() });
-    if (!isV2)
-      return dependencies.service.ingest(parsed.data as WorkspaceUsageSnapshot);
     try {
+      if (!isV2)
+        return await dependencies.service.ingest(parsed.data as WorkspaceUsageSnapshot);
       return await dependencies.service.ingestV2(parsed.data as UsageSnapshotChunk);
     } catch (error) {
       if (error instanceof ExpenseSnapshotConflictError)

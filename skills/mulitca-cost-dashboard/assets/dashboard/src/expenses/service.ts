@@ -538,6 +538,9 @@ export class ExpenseService {
     const collectedAt = new Date(snapshot.collectedAt);
     await this.db.transaction(async (tx) => {
       await tx.execute(v2UploadLock);
+      const [latestCollection] = await tx.select({ value: appConfig.value }).from(appConfig).where(eq(appConfig.key, expenseLastCollectionConfigKey)).limit(1);
+      if ((latestCollection?.value as { collectedAt?: string } | undefined)?.collectedAt && new Date((latestCollection.value as { collectedAt: string }).collectedAt) > collectedAt)
+        throw new ExpenseSnapshotConflictError('已有更新的费用采集批次，拒绝旧快照覆盖');
       for (const row of snapshot.runtimeUsage) {
         await tx.insert(expenseRuntimeUsage).values({ ...row, collectedAt }).onConflictDoUpdate({
           target: [expenseRuntimeUsage.runtimeId, expenseRuntimeUsage.usageDate, expenseRuntimeUsage.provider, expenseRuntimeUsage.model],

@@ -2,6 +2,7 @@
 // Creates and removes its own randomly named schema in the selected test database.
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes } from 'node:crypto';
+import { createServer } from 'node:http';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
@@ -163,6 +164,76 @@ test('self-hosted collection, authentication, pricing and atomic V2 ingestion', 
       assert.equal(response.statusCode, 200, response.body);
       assert.equal((await summary()).runtimeTokens, 0);
       assert.equal((await summary()).total.costUsd, 4);
+    });
+    await t.test('legacy V1 uploads cannot overwrite a newer V2 collection', async () => {
+      const body = {
+        schemaVersion: 1, collectedAt: snapshot.collectedAt,
+        runtimeUsage: snapshot.runtimeUsage, taskUsage: snapshot.taskUsage, issueUsage: snapshot.issueUsage,
+      };
+      const response = await signed(body);
+      assert.equal(response.statusCode, 409, response.body);
+      assert.equal((await summary()).runtimeTokens, 0);
+    });
+    await t.test('HTTP 413 retries use chunks down to the documented 256 KiB limit', async () => {
+      const limited = await createApp({ db, adminSecret: admin, ingestSecret: secret, bodyLimit: 400 * 1024 });
+      const statuses = [];
+      limited.addHook('onResponse', async (_request, reply) => { statuses.push(reply.statusCode); });
+      try {
+        const limitedAddress = await limited.listen({ host: '127.0.0.1', port: 0 });
+        const runtimeUsage = Array.from({ length: 300 }, (_, index) => ({
+          ...snapshot.runtimeUsage[0], model: `example-model-${index}`, runtimeName: 'R'.repeat(4000),
+        }));
+        const large = {
+          ...snapshot, snapshotId: randomUUID(), collectedAt: new Date(Date.now() + 4000).toISOString(),
+          runtimeUsage, taskUsage: [], issueUsage: [], expectedRows: { runtime: runtimeUsage.length, task: 0, issue: 0 },
+        };
+        const receipt = await uploadSnapshot(large, { ...options, dashboardUrl: limitedAddress, maxPayloadBytes: 2 * 1024 * 1024 });
+        assert.equal(receipt.committed, true);
+        assert.equal(receipt.runtimeRows, runtimeUsage.length);
+        assert.ok(statuses.filter((status) => status === 413).length >= 2);
+        assert.equal((await pool.query('select count(*)::int as n from expense_runtime_usage')).rows[0].n, 300);
+      } finally {
+        await limited.close();
+      }
+    });
+    await t.test('early connection resets retry smaller chunks without duplicating data', async () => {
+      const requestSizes = [];
+      const proxy = createServer(async (request, response) => {
+        requestSizes.push(Number(request.headers['content-length']));
+        if (requestSizes.length <= 2) {
+          request.socket.destroy();
+          return;
+        }
+        try {
+          const buffers = [];
+          for await (const buffer of request) buffers.push(buffer);
+          const upstream = await fetch(new URL(request.url, address), {
+            method: 'POST', headers: request.headers, body: Buffer.concat(buffers),
+          });
+          response.writeHead(upstream.status, { 'content-type': 'application/json' });
+          response.end(await upstream.text());
+        } catch {
+          response.writeHead(502).end();
+        }
+      });
+      try {
+        await new Promise((resolve) => proxy.listen(0, '127.0.0.1', resolve));
+        const runtimeUsage = Array.from({ length: 300 }, (_, index) => ({
+          ...snapshot.runtimeUsage[0], model: `reset-model-${index}`, runtimeName: 'R'.repeat(4000),
+        }));
+        const large = {
+          ...snapshot, snapshotId: randomUUID(), collectedAt: new Date(Date.now() + 5000).toISOString(),
+          runtimeUsage, taskUsage: [], issueUsage: [], expectedRows: { runtime: runtimeUsage.length, task: 0, issue: 0 },
+        };
+        const receipt = await uploadSnapshot(large, {
+          ...options, dashboardUrl: `http://127.0.0.1:${proxy.address().port}/`, maxPayloadBytes: 2 * 1024 * 1024,
+        });
+        assert.equal(receipt.committed, true);
+        assert.ok(requestSizes[0] > requestSizes[1] && requestSizes[1] > requestSizes[2]);
+        assert.equal((await pool.query('select count(*)::int as n from expense_runtime_usage')).rows[0].n, 300);
+      } finally {
+        await new Promise((resolve) => proxy.close(resolve));
+      }
     });
   } finally {
     if (app) await app.close();

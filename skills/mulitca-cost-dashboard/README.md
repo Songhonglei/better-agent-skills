@@ -94,7 +94,8 @@ npm run collect -- --days 365
 `collect` 支持 `--days`、`--dashboard-url`、`--secret-file`、`--snapshot-path`。
 同名命令行参数优先于环境变量。`npm run collect -- --help` 查看用法。
 退出码 0 表示采集和提交成功，1 表示部分采集失败或执行失败。
-大快照自动分块，遇到 HTTP 413 时自动缩小分块，最低 256 KiB。
+大快照自动分块，遇到 HTTP 413 或连接提前重置时有界缩小分块，最低 256 KiB。
+达到下限仍失败时，检查大盘、网络及代理请求大小限制，恢复后重跑采集。
 
 管理员密码用于页面读取和价格修改，采集密钥仅用于签名上传。
 修改 `PORT` 后同时更新 `COST_DASHBOARD_URL`。

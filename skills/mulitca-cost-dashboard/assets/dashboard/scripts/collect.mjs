@@ -22,16 +22,27 @@ export async function uploadSnapshot(snapshot, options) {
     const uploadId = randomUUID();
     let receipt;
     let oversized = false;
+    let connectionReset = false;
     for (let index = 0; index < chunks.length; index += 1) {
       const body = makeChunk(snapshot, uploadId, index, chunks.length, chunks[index]);
       const path = '/api/collector/usage-snapshots';
-      const response = await fetch(new URL(path, base), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', ...signCollectorRequest({ secret, method: 'POST', path, body }) },
-        body: serializeCollectorBody(body),
-        signal: AbortSignal.timeout(180000),
-        redirect: 'error',
-      });
+      let response;
+      try {
+        response = await fetch(new URL(path, base), {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...signCollectorRequest({ secret, method: 'POST', path, body }) },
+          body: serializeCollectorBody(body),
+          signal: AbortSignal.timeout(180000),
+          redirect: 'error',
+        });
+      } catch (error) {
+        if (!['ECONNRESET', 'EPIPE', 'UND_ERR_SOCKET'].includes(error?.cause?.code ?? error?.code)) throw error;
+        // A server rejecting a large body may close the socket before fetch can
+        // read its 413 response. V2 snapshot identity makes a retry idempotent.
+        oversized = true;
+        connectionReset = true;
+        break;
+      }
       if (response.status === 413) { oversized = true; break; }
       if (!response.ok) throw new Error(`Upload failed (HTTP ${response.status}). Check the dashboard URL, secret, server clock and database.`);
       receipt = await response.json();
@@ -41,7 +52,9 @@ export async function uploadSnapshot(snapshot, options) {
       assertCommittedReceipt(receipt, snapshot);
       return receipt;
     }
-    if (budget <= 262144) throw new Error('Upload exceeds body limit at 256 KiB. Increase MAX_PAYLOAD_BYTES on the dashboard.');
+    if (budget <= 262144) throw new Error(connectionReset
+      ? 'Upload connection reset at 256 KiB. Check the dashboard, network and proxy body limits, then rerun collection.'
+      : 'Upload exceeds body limit at 256 KiB. Increase MAX_PAYLOAD_BYTES on the dashboard.');
     budget = Math.max(262144, Math.floor(budget / 2));
   }
 }
