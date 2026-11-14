@@ -21,8 +21,9 @@ sync_openclaw_config.py — openclaw.json multi-location sync tool
     # 同步当前 runtime 配置到 INIT_HOOKS_SYNC_PATHS 里的目标（最常用）
     python3 sync_openclaw_config.py
 
-    # 指定 patch dict（JSON 字符串），先 patch runtime 再同步
-    python3 sync_openclaw_config.py --patch '{"acp": {"enabled": true}}'
+    # 按用户明确要求 patch 某个字段（<section>/<field>/<value> 换成用户给的值；
+    # 脚本没有任何预置默认值，不主动开启/关闭任何配置项）
+    python3 sync_openclaw_config.py --patch '{"<section>": {"<field>": "<value>"}}'
 
     # 执行一个修改 openclaw.json 的脚本，执行完后自动同步
     python3 sync_openclaw_config.py --run ~/scripts/patch_config.py

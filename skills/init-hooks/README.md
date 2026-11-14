@@ -84,6 +84,12 @@ Evan Song · [github.com/Songhonglei](https://github.com/Songhonglei)
 
 ## Changelog
 
+### v1.0.3 (2026-11-14)
+
+- **Docs**：去掉 `acp` 相关示例（`--patch '{"acp": {"enabled": true}}'`、`enable-acp.py` 样例），改成中性的 `<section>/<field>/<value>` 占位写法。此前安全扫描据此判定"skill 主动开启 ACP 且未披露"（`TP4` HIGH），实际脚本只是原样透传用户给的 patch
+- **Docs**：SKILL.md 与脚本 docstring 都写明能力边界——不预设默认值、不主动开启/关闭任何配置项，只写用户明确给出的字段并复制到配置的持久化路径
+- 无代码逻辑变更
+
 ### v1.0.2 (2026-11-14)
 
 - **Fix（安全）**：URL 钩子在 sha256 校验失败后不再执行上一轮遗留的脚本 —— dispatcher 的下载 / 解包 / 执行改为单条 `&&` 条件链，并在每次执行前删掉旧入口，任一步失败即"失败关闭"（此前会静默跑旧脚本，还把结果记成"成功"）

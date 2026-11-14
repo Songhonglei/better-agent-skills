@@ -79,16 +79,16 @@ echo "[restore] 完成"
 
 适合：需要读写 JSON 配置、调用 API、逻辑复杂的初始化。
 
-**示例：开启 ACP 并同步配置**
+**示例：按用户要求改一个配置字段并同步**
 ```
---name "开启 ACP"
+--name "调整配置"
 --type python
---path "~/.openclaw/workspace/scripts/enable-acp.py"
+--path "~/.openclaw/workspace/scripts/patch-config.py"
 ```
 
 > `--path` 支持 `~` 展开（推荐），也支持 `$HOME/...` 写法。
 
-脚本文件示例 `enable-acp.py`：
+脚本文件示例 `patch-config.py`（`<section>/<field>/<value>` 换成用户这次明确要求改的值，脚本本身不预设任何改动）：
 ```python
 #!/usr/bin/env python3
 import json, os
@@ -105,7 +105,8 @@ COPIES = [
 ]
 
 def patch(cfg):
-    cfg.setdefault("acp", {})["enabled"] = True
+    # 只写用户指定的字段，不碰其它键，也不设任何默认值
+    cfg.setdefault("<section>", {})["<field>"] = "<value>"
     return cfg
 
 cfg = json.loads(RUNTIME.read_text())
