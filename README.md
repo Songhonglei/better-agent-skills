@@ -20,7 +20,7 @@ multi-agent coordination. All authored by **Evan Song** (@Songhonglei).
 
 | Skill | Latest | What it does |
 |-------|--------|--------------|
-| [`init‑hooks`](skills/init-hooks) | **v1.0.0** | Run scripts automatically on every container/host boot — survives gateway restarts, container restarts and rebuilds. Registry-driven, idempotent, with inline / local-script / remote-CDN hook types. |
+| [`init‑hooks`](skills/init-hooks) | **v1.0.2** | Run scripts automatically on every container/host boot — survives gateway restarts, container restarts and rebuilds. Registry-driven, idempotent, with inline / local-script / remote-CDN hook types. |
 | [`subagent‑timeout‑config`](skills/subagent-timeout-config) | **v1.0.0** | One-click subagent timeout configurator for OpenClaw with preset profiles. |
 | [`claw‑memory‑manager`](skills/claw-memory-manager) | **v1.1.0** | One-command management of OpenClaw built-in memory features. Configure Dreaming (Light→REM→Deep auto consolidation) with tunable half-life, max-age, IANA timezone. |
 | [`consolidate‑memory`](skills/consolidate-memory) | **v1.0.0-wb** | Reflective memory housekeeping for WorkBuddy — merge duplicates, retire stale entries, fix relative dates and prune a bloated MEMORY.md back under its cap. Backs up first, applies fixes one at a time. |

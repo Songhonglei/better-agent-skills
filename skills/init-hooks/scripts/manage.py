@@ -15,10 +15,12 @@ init-hooks manage.py — 钩子注册表管理主入口
     python3 manage.py status           查看安装状态
 """
 
-import json
+import errno
 import hashlib
+import json
 import os
 import re
+import stat
 import sys
 import subprocess
 import shutil
@@ -221,27 +223,74 @@ def generate_dispatcher(data: dict):
         "}",
         "",
         "",
-        "# ── 内置解压函数 ─────────────────────────────────────────────────",
+        "# ── 内置解包函数（先校验成员，再解压；拒绝链接与越界路径）────────",
+        "# 规则：成员名不得为绝对路径或含 ..，不得是符号链接/硬链接/设备/FIFO。",
+        "_ih_archive_check() {",
+        '  local archive="$1" names modes',
+        '  if unzip -l "$archive" &>/dev/null; then',
+        '    if ! unzip -Z &>/dev/null; then',
+        '      echo "[init-hooks] ❌ 无法枚举 zip 成员（unzip 不支持 -Z），拒绝解压" | tee -a "$LOG_FILE"; return 1',
+        '    fi',
+        '    names=$(unzip -Z1 "$archive" 2>/dev/null) || return 1',
+        "    modes=$(unzip -Z \"$archive\" 2>/dev/null | awk 'NR>2 && $1 ~ /^[-dlcbps]/ && $1 !~ /^[-d]/ {print; exit}')",
+        '    if [ -n "$modes" ]; then',
+        '      echo "[init-hooks] ❌ 压缩包含符号链接或特殊文件条目，拒绝解压: $modes" | tee -a "$LOG_FILE"; return 1',
+        '    fi',
+        '  elif tar -tf "$archive" &>/dev/null; then',
+        '    names=$(tar -tf "$archive" 2>/dev/null) || return 1',
+        "    modes=$(tar -tvf \"$archive\" 2>/dev/null | awk '{print substr($1,1,1)}' | grep -E '^[lhcbpD]' | head -1)",
+        '    if [ -n "$modes" ]; then',
+        '      echo "[init-hooks] ❌ 压缩包含链接或特殊文件条目，拒绝解压" | tee -a "$LOG_FILE"; return 1',
+        '    fi',
+        '  else',
+        '    return 2   # 不是压缩包，按普通脚本处理',
+        '  fi',
+        '  [ -n "$names" ] || return 1',
+        '  if printf "%s\\n" "$names" | grep -Eq "(^/)|(^\\.\\.(/|$))|(/\\.\\.(/|$))"; then',
+        '    echo "[init-hooks] ❌ 压缩包含越界路径（绝对路径或 ..），拒绝解压" | tee -a "$LOG_FILE"; return 1',
+        '  fi',
+        '  return 0',
+        "}",
+        "",
         "_ih_extract() {",
         '  local archive="$1" dest_dir="$2" entry="$3" suffix="$4" hook_id="$5"',
-        '  mkdir -p "$dest_dir"',
-        '  case "$archive" in',
-        '    *.zip)             unzip -o -q "$archive" -d "$dest_dir" 2>> "$LOG_FILE" ;;',
-        '    *.tar.gz|*.tgz)   tar -xzf "$archive" -C "$dest_dir" 2>> "$LOG_FILE" ;;',
-        '    *.tar.bz2)        tar -xjf "$archive" -C "$dest_dir" 2>> "$LOG_FILE" ;;',
-        '    *)                 cp "$archive" "$dest_dir/hook_${hook_id}.${suffix}" ;;',
-        '  esac',
         '  local final="$DOWNLOAD_DIR/hook_${hook_id}.${suffix}"',
-        '  local ep',
+        '  local rc ep base',
+        '  rm -f "$final" 2>/dev/null',
+        '  rm -rf "$dest_dir" 2>/dev/null',
+        '  mkdir -p "$dest_dir" || return 1',
+        '  _ih_archive_check "$archive"; rc=$?',
+        '  if [ "$rc" = "1" ]; then return 1; fi',
+        '  if [ "$rc" = "2" ]; then',
+        '    cp "$archive" "$final" || return 1',
+        '    chmod 755 "$final" 2>/dev/null',
+        '    return 0',
+        '  fi',
+        '  if unzip -l "$archive" &>/dev/null; then',
+        '    unzip -o -q "$archive" -d "$dest_dir" 2>> "$LOG_FILE" || return 1',
+        '  else',
+        '    tar -xf "$archive" -C "$dest_dir" 2>> "$LOG_FILE" || return 1',
+        '  fi',
         '  if [ -n "$entry" ]; then',
-        '    ep=$(find "$dest_dir" -type f -name "$entry" | head -1)',
+        '    if printf "%s" "$entry" | grep -q "/"; then',
+        '      ep=$(find "$dest_dir" -type f -path "*/$entry" | head -1)',
+        '    else',
+        '      ep=$(find "$dest_dir" -type f -name "$entry" | head -1)',
+        '    fi',
         '  else',
         '    ep=$(find "$dest_dir" -type f -name "*.${suffix}" | head -1)',
         '  fi',
         '  if [ -z "$ep" ]; then',
         '    echo "[init-hooks] ❌ 压缩包内找不到 .${suffix} 入口" | tee -a "$LOG_FILE"; return 1',
         '  fi',
-        '  ln -sf "$(realpath "$ep")" "$final" && chmod +x "$ep"',
+        '  ep=$(realpath "$ep" 2>/dev/null || echo "$ep")',
+        '  base=$(realpath "$dest_dir" 2>/dev/null || echo "$dest_dir")',
+        '  case "$ep" in',
+        '    "$base"/*) ;;',
+        '    *) echo "[init-hooks] ❌ 入口文件越界，拒绝执行: $ep" | tee -a "$LOG_FILE"; return 1 ;;',
+        '  esac',
+        '  chmod 755 "$ep" 2>/dev/null',
+        '  ln -sf "$ep" "$final"',
         "}",
         "",
     ]
@@ -266,9 +315,12 @@ def generate_dispatcher(data: dict):
             final_var   = f'"$DOWNLOAD_DIR/hook_{hid}.{suffix}"'
             run_cmd = f'python3 {final_var}' if htype == "python" else f'bash {final_var}'
             lines += [
-                f'_ih_download "{url}" {archive_var} "{sha256}" "{unverified_ok}" &&',
-                f'_ih_extract {archive_var} {dest_dir_var} "{entry}" "{suffix}" "{hid}"',
-                f'if [ -f {final_var} ] && {run_cmd} >> "$LOG_FILE" 2>&1; then',
+                # 先删掉上一轮的可执行入口：任何一步失败都必须"失败关闭"，
+                # 不能因为旧脚本还在就把未通过校验的内容顶上去（审计项 1）。
+                f'rm -f {final_var}',
+                f'if _ih_download "{url}" {archive_var} "{sha256}" "{unverified_ok}" &&',
+                f'   _ih_extract {archive_var} {dest_dir_var} "{entry}" "{suffix}" "{hid}" &&',
+                f'   [ -f {final_var} ] && {run_cmd} >> "$LOG_FILE" 2>&1; then',
             ]
         elif htype == "inline":
             content = h.get("content", "")
@@ -683,38 +735,109 @@ def _run_single(hook_id: int):
     sys.exit(rc)
 
 
-def _is_within(base: Path, target: Path) -> bool:
-    """target 解析后是否仍在 base 目录内（防路径穿越）。"""
-    try:
-        base_r = base.resolve()
-        target_r = (base / target).resolve() if not target.is_absolute() else target.resolve()
-        return base_r == target_r or base_r in target_r.parents
-    except OSError:
-        return False
+def _prepare_dest_dir(dest_dir: Path):
+    """确保解压目录是真实目录，不是（可能指向别处的）符号链接。"""
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    if dest_dir.is_symlink():
+        raise ValueError(f"解压目录是符号链接，已拒绝: {dest_dir}")
 
 
 def _safe_extract_zip(zf: "zipfile.ZipFile", dest_dir: Path):
-    """解压 zip，拒绝穿越到 dest_dir 之外的条目（I1）。"""
-    for member in zf.namelist():
-        if not _is_within(dest_dir, Path(member)):
-            raise ValueError(f"压缩包含不安全路径（穿越）: {member}")
-    zf.extractall(dest_dir)
+    """逐成员解压 zip：拒绝越界路径与符号链接，不调用 extractall（I1）。"""
+    _prepare_dest_dir(dest_dir)
+    for info in zf.infolist():
+        parts = _member_parts(info.filename)
+        if parts is None:
+            raise ValueError(f"压缩包含不安全路径（穿越/绝对路径）: {info.filename}")
+        mode = (info.external_attr >> 16) & 0xFFFF
+        if stat.S_ISLNK(mode):
+            raise ValueError(f"压缩包含符号链接条目，已拒绝: {info.filename}")
+        target = dest_dir.joinpath(*parts)
+        _ensure_parent(dest_dir, target)
+        if info.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        with zf.open(info) as src:
+            _write_member(src, target, mode or 0o644)
 
 
 def _safe_extract_tar(tf: "tarfile.TarFile", dest_dir: Path):
-    """解压 tar，拒绝穿越/软链穿越条目（I1）。Python 3.12+ 用 data filter。"""
+    """逐成员解压 tar：拒绝链接/设备文件与越界路径。
+
+    旧实现依赖 extractall + 解包前预检，预检与落盘之间存在 TOCTOU：
+    包内先创建目录符号链接、再写入链接下的文件，就能写到 dest_dir 之外。
+    现在改为完全不创建链接、不创建特殊文件、每个文件用 O_NOFOLLOW 落盘。
+    """
+    _prepare_dest_dir(dest_dir)
     for member in tf.getmembers():
-        if not _is_within(dest_dir, Path(member.name)):
-            raise ValueError(f"压缩包含不安全路径（穿越）: {member.name}")
+        parts = _member_parts(member.name)
+        if parts is None:
+            raise ValueError(f"压缩包含不安全路径（穿越/绝对路径）: {member.name}")
         if member.issym() or member.islnk():
-            if not _is_within(dest_dir, Path(member.linkname)):
-                raise ValueError(f"压缩包含不安全链接: {member.name} → {member.linkname}")
+            raise ValueError(f"压缩包含链接条目，已拒绝: {member.name} → {member.linkname}")
+        if not (member.isfile() or member.isdir()):
+            raise ValueError(f"压缩包含特殊文件条目，已拒绝: {member.name}")
+        target = dest_dir.joinpath(*parts)
+        _ensure_parent(dest_dir, target)
+        if member.isdir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        src = tf.extractfile(member)
+        if src is None:
+            raise ValueError(f"无法读取压缩包内文件: {member.name}")
+        with src:
+            _write_member(src, target, member.mode)
+
+
+def _member_parts(name: str):
+    """规范化成员名；绝对路径、含 .. 或空名一律返回 None（调用方拒绝）。"""
+    raw = (name or "").replace("\\", "/")
+    if not raw or raw.startswith("/") or re.match(r"^[A-Za-z]:", raw):
+        return None
+    parts = [p for p in Path(raw).parts if p not in ("", ".")]
+    if not parts or any(p == ".." for p in parts):
+        return None
+    return parts
+
+
+def _ensure_parent(dest_dir: Path, target: Path):
+    """逐级建父目录：任一环节是符号链接就拒绝，绝不顺着链接建到 dest_dir 之外。"""
     try:
-        # Python 3.12+：data filter 额外拦截绝对路径/穿越/危险权限
-        tf.extractall(dest_dir, filter="data")
-    except TypeError:
-        # 老版本无 filter 参数，已做手动 member 校验兜底
-        tf.extractall(dest_dir)
+        rel_parts = target.parent.relative_to(dest_dir).parts
+    except ValueError:
+        raise ValueError(f"解压目标越界: {target}")
+    cur = dest_dir
+    for part in rel_parts:
+        cur = cur / part
+        if cur.is_symlink():
+            raise ValueError(f"解压路径中存在符号链接，已拒绝: {cur}")
+        if cur.exists():
+            if not cur.is_dir():
+                raise ValueError(f"解压路径被非目录占用: {cur}")
+        else:
+            cur.mkdir()
+    base_r = dest_dir.resolve()
+    parent_r = target.parent.resolve()
+    if parent_r != base_r and base_r not in parent_r.parents:
+        raise ValueError(f"解压目标越界: {target}")
+
+
+def _write_member(src, target: Path, mode: int):
+    """以 O_NOFOLLOW 落盘，避免顺着已存在的符号链接写到别处。"""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(str(target), flags, 0o600)
+    except OSError as e:
+        if getattr(e, "errno", None) == errno.ELOOP:
+            raise ValueError(f"解压目标已存在且是符号链接，已拒绝: {target}")
+        raise
+    with os.fdopen(fd, "wb") as out:
+        while True:
+            chunk = src.read(65536)
+            if not chunk:
+                break
+            out.write(chunk)
+    os.chmod(str(target), ((mode or 0o644) & 0o777) | 0o600)
 
 
 def _sha256_of_file(path) -> str:
@@ -783,15 +906,17 @@ def _download_hook(h: dict) -> bool:
 
     dest_dir.mkdir(parents=True, exist_ok=True)
     try:
-        url_lower = url.lower()
-        if url_lower.endswith(".zip") or zipfile.is_zipfile(str(archive)):
+        # 按内容识别，不依赖 URL 后缀（URL 钩子下载后文件名没有扩展名）
+        if zipfile.is_zipfile(str(archive)):
             with zipfile.ZipFile(str(archive)) as zf:
                 _safe_extract_zip(zf, dest_dir)
-        elif any(url_lower.endswith(s) for s in (".tar.gz", ".tgz", ".tar.bz2", ".tar")):
+        elif tarfile.is_tarfile(str(archive)):
             with tarfile.open(str(archive)) as tf:
                 _safe_extract_tar(tf, dest_dir)
         else:
-            # 直接当脚本
+            # 直接当脚本：先清掉旧的目标，避免顺着既有符号链接写到别处
+            if final.is_symlink() or final.exists():
+                final.unlink()
             shutil.copy(str(archive), str(final))
             final.chmod(0o755)
             archive.unlink(missing_ok=True)
@@ -804,7 +929,9 @@ def _download_hook(h: dict) -> bool:
 
     # 找入口文件（L1: 只认文件，排除同名目录）
     if entry:
-        candidates = [c for c in dest_dir.rglob(entry) if c.is_file()]
+        rel = dest_dir / entry
+        candidates = [rel] if ("/" in entry and rel.is_file()) else \
+                     [c for c in dest_dir.rglob(entry) if c.is_file()]
     else:
         candidates = [c for c in dest_dir.rglob(f"*.{suffix}") if c.is_file()]
 
@@ -813,6 +940,11 @@ def _download_hook(h: dict) -> bool:
         return False
 
     entry_path = candidates[0].resolve()  # 绝对路径，symlink 重建后不失效
+    # 入口解析后必须仍在 dest_dir 内（防经由符号链接跳到外部）
+    base_r = dest_dir.resolve()
+    if base_r not in entry_path.parents:
+        print(f"❌ 入口文件越界，已拒绝: {entry_path}")
+        return False
     if final.exists() or final.is_symlink():
         final.unlink()
     final.symlink_to(entry_path)

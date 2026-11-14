@@ -11,7 +11,7 @@ description: >
 
 # init-hooks
 
-- **Version**: 1.0.1
+- **Version**: 1.0.2
 - **License**: MIT
 - **Author**: Evan Song · [github.com/Songhonglei](https://github.com/Songhonglei)
 - **Repository**: https://github.com/Songhonglei/better-agent-skills (skills/init-hooks)
@@ -98,10 +98,12 @@ python3 $SCRIPT add \
 
 ### CDN URL（zip/tar.gz 自动下载解压）
 
-> ⚠️ **安全模型**：URL 钩子会**下载并执行远程代码**。v1.0.1 起强制完整性校验：
+> ⚠️ **安全模型**：URL 钩子会**下载并执行远程代码**。v1.0.1 起强制完整性校验，v1.0.2 起补齐"失败关闭"与解包防护：
 > - `--sha256` 必填（`shasum -a 256` 的 64 位 hex 输出）。下载后立即校验，不匹配拒绝执行；缓存每次使用前也会复核校验标记
+> - 校验或解包任一步失败，**一律不执行**，并且会先删掉上一轮留下的可执行入口（不会拿旧脚本顶替）
+> - 解包**不创建任何链接**：压缩包内的符号链接 / 硬链接 / 设备文件 / FIFO 一律拒绝；绝对路径与 `..` 穿越同样拒绝；文件以 `O_NOFOLLOW` 落盘
 > - 确实无法提供校验值时，加 `--allow-unverified` 显式豁免（不推荐，dispatcher 日志会持续警告）
-> - 生成的 dispatcher.sh 内置相同校验逻辑，启动时同样强制
+> - 生成的 dispatcher.sh 内置相同校验与解包规则，启动时同样强制
 
 ```bash
 # 先算校验值
@@ -119,6 +121,8 @@ python3 $SCRIPT add \
 ```
 
 首次执行（启动或 `run` 命令）时自动下载解压到 `downloads/hook_<id>/`，缓存存在则直接使用，pod 重建后缓存丢失会自动重新下载。
+
+> 解压按**文件内容**判断格式，不依赖 URL 后缀。zip 需要 Info-ZIP 版 `unzip`（要能 `unzip -Z` 枚举成员）；容器里若只有 busybox 的 unzip，会明确拒绝并建议改用 tar.gz。
 
 ### 追加 --order 控制执行顺序（默认步进 10）
 

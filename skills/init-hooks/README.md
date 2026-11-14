@@ -84,6 +84,15 @@ Evan Song · [github.com/Songhonglei](https://github.com/Songhonglei)
 
 ## Changelog
 
+### v1.0.2 (2026-11-14)
+
+- **Fix（安全）**：URL 钩子在 sha256 校验失败后不再执行上一轮遗留的脚本 —— dispatcher 的下载 / 解包 / 执行改为单条 `&&` 条件链，并在每次执行前删掉旧入口，任一步失败即"失败关闭"（此前会静默跑旧脚本，还把结果记成"成功"）
+- **Fix（安全）**：解包不再调用 `tarfile.extractall` / `zipfile.extractall`，改为逐成员落盘：拒绝符号链接、硬链接、设备文件与 FIFO，拒绝绝对路径与 `..` 穿越，文件以 `O_NOFOLLOW` 写入，父目录逐级校验不跟随链接
+- **Fix**：解包按内容识别格式（`zipfile.is_zipfile` / `tarfile.is_tarfile`），修复下载文件无扩展名导致压缩包被当成普通脚本拷贝、`*.zip` / `*.tar.gz` 分支永远走不到的问题
+- 入口文件解析后校验必须仍在解压目录内
+- `references/best-practices.md` 的环境变量示例改为写独立 env 文件，不再演示追加 `~/.bashrc`
+- 新增 `tests/test_init_hooks_security.py`：覆盖校验失败失败关闭、链接/穿越/绝对路径/残留链接越界写入等 12 条用例
+
 ### v1.0.0 (2026-07-13)
 
 - Initial public release

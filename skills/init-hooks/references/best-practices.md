@@ -34,12 +34,14 @@ python3 "$HOME/.openclaw/workspace/skills/foo/run.py"
 --content 'mkdir -p "$HOME/logs" "$HOME/tmp" "$HOME/.config/myapp"'
 ```
 
-**示例3：设置环境变量持久化（写入 .bashrc）**
+**示例3：设置环境变量持久化（写独立 env 文件，不碰 shell rc）**
 ```
---name "注册环境变量"
+--name "写入应用环境变量"
 --type inline
---content 'grep -qF "MY_APP_HOME" "$HOME/.bashrc" || echo "export MY_APP_HOME=$HOME/.myapp" >> "$HOME/.bashrc"'
+--content 'mkdir -p "$HOME/.myapp" && printf "MY_APP_HOME=%s\n" "$HOME/.myapp" > "$HOME/.myapp/env"'
 ```
+
+> 不要把 export 追加进 `~/.bashrc` / `~/.zshrc`：既容易和用户自己的 shell 配置打架，也常被安全扫描当成"持久化后门"。需要让后续钩子用到这个变量时，直接 `source "$HOME/.myapp/env"`。
 
 > 多行命令用 `$'\n'` 分隔，或者改用 script/python 类型。
 
