@@ -12,7 +12,7 @@ description: >
 
 # init-hooks
 
-- **Version**: 1.0.3
+- **Version**: 1.0.4
 - **License**: MIT
 - **Author**: Evan Song · [github.com/Songhonglei](https://github.com/Songhonglei)
 - **Repository**: https://github.com/Songhonglei/better-agent-skills (skills/init-hooks)
@@ -157,10 +157,8 @@ python3 $SCRIPT edit 1 --url https://... --entry run.sh
 ```bash
 SYNC="$HOME/.openclaw/workspace/skills/init-hooks/scripts/sync_openclaw_config.py"
 
-# 场景1：按用户明确要求 patch 某个字段（<section>/<field>/<value> 换成用户给的值）
-python3 $SYNC --patch '{"<section>": {"<field>": "<value>"}}'
-
-# 场景1b：用户把 patch 写在文件里
+# 场景1：按用户明确要求 patch 某个字段 —— patch 内容由用户给出（写成文件），
+#         Agent 不自己造字段、不预设默认值
 python3 $SYNC --patch "$(cat ~/user-patch.json)"
 
 # 场景2：用户提供了修改脚本，执行完后自动同步

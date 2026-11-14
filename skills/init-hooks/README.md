@@ -84,6 +84,13 @@ Evan Song · [github.com/Songhonglei](https://github.com/Songhonglei)
 
 ## Changelog
 
+### v1.0.4 (2026-11-14)
+
+- **Fix（文档示例，真问题）**：`best-practices.md` 的 python 示例原本对每个持久化目标**各自打补丁**，目标文件里的旧值不会消失，重建后会把过期配置带回来——等于假同步。改为"只改 runtime，然后把 runtime 整份复制到各目标"，与 `sync_openclaw_config.py` 的实际语义一致
+- **Fix（文档示例）**：示例里的 patch 不再写死键值，改由调用方通过环境变量传入，脚本本身不预设任何改动
+- SKILL.md / 脚本 docstring 的 `--patch` 示例统一改成从用户给的文件读取，不再出现字面 JSON
+- 无运行时逻辑变更
+
 ### v1.0.3 (2026-11-14)
 
 - **Docs**：去掉 `acp` 相关示例（`--patch '{"acp": {"enabled": true}}'`、`enable-acp.py` 样例），改成中性的 `<section>/<field>/<value>` 占位写法。此前安全扫描据此判定"skill 主动开启 ACP 且未披露"（`TP4` HIGH），实际脚本只是原样透传用户给的 patch

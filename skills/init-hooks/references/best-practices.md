@@ -79,16 +79,16 @@ echo "[restore] 完成"
 
 适合：需要读写 JSON 配置、调用 API、逻辑复杂的初始化。
 
-**示例：按用户要求改一个配置字段并同步**
+**示例：改配置后把 runtime 复制到持久化路径**
 ```
 --name "调整配置"
 --type python
---path "~/.openclaw/workspace/scripts/patch-config.py"
+--path "~/.openclaw/workspace/scripts/apply-config.py"
 ```
 
 > `--path` 支持 `~` 展开（推荐），也支持 `$HOME/...` 写法。
 
-脚本文件示例 `patch-config.py`（`<section>/<field>/<value>` 换成用户这次明确要求改的值，脚本本身不预设任何改动）：
+脚本文件示例 `apply-config.py`。两个关键点：patch 内容由调用方传入，脚本里不写死任何键值；同步是**整份复制 runtime**，不是逐个文件打补丁——后者会让目标文件里的旧值残留，pod 重建后又把旧配置带回来。
 ```python
 #!/usr/bin/env python3
 import json, os
@@ -103,24 +103,29 @@ COPIES = [
     for p in os.environ.get("INIT_HOOKS_SYNC_PATHS", "").split(os.pathsep)
     if p.strip()
 ]
+# 本次要改的内容由调用方给出（空 = 不改），脚本不预设任何键值
+PATCH = json.loads(os.environ.get("CONFIG_PATCH_JSON", "{}"))
 
-def patch(cfg):
-    # 只写用户指定的字段，不碰其它键，也不设任何默认值
-    cfg.setdefault("<section>", {})["<field>"] = "<value>"
-    return cfg
+def merge(base, extra):
+    for k, v in extra.items():
+        if isinstance(base.get(k), dict) and isinstance(v, dict):
+            merge(base[k], v)
+        else:
+            base[k] = v
+    return base
 
-cfg = json.loads(RUNTIME.read_text())
-patch(cfg)
-RUNTIME.write_text(json.dumps(cfg, indent=2, ensure_ascii=False))
-print(f"✅ {RUNTIME}")
+if PATCH:
+    cfg = json.loads(RUNTIME.read_text())
+    RUNTIME.write_text(json.dumps(merge(cfg, PATCH), indent=2, ensure_ascii=False))
+    print(f"✅ {RUNTIME}")
 
+# 把 runtime 原样复制到每个已存在的目标，保证各处与 runtime 完全一致
+data = RUNTIME.read_text()
 for p in COPIES:
     if not p.exists():
         print(f"⏭  跳过（不存在）: {p}")
         continue
-    c = json.loads(p.read_text())
-    patch(c)
-    p.write_text(json.dumps(c, indent=2, ensure_ascii=False))
+    p.write_text(data)
     print(f"✅ {p}")
 ```
 
