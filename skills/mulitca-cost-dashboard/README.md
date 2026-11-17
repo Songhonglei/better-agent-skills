@@ -79,7 +79,7 @@ npm run collect -- --days 365
 | --- | --- |
 | `DATABASE_URL` | 必填，专用 PostgreSQL 连接。setup 配合 Compose 生成本地连接 |
 | `POSTGRES_PASSWORD` | Compose 数据库密码，由 setup 随机生成 |
-| `ADMIN_SECRET_FILE` | 必填，浏览器管理员密码文件，至少 32 字符 |
+| `ADMIN_SECRET_FILE` | 必填，浏览器管理员密码文件，至少 12 字符 |
 | `INGEST_SECRET_FILE` | 必填，HMAC 采集密钥文件，至少 32 字符。远端采集端需配置同一密钥 |
 | `HOST` | 服务监听地址，默认 `127.0.0.1` |
 | `PORT` | 服务端口，默认 `4318` |
@@ -98,6 +98,8 @@ npm run collect -- --days 365
 达到下限仍失败时，检查大盘、网络及代理请求大小限制，恢复后重跑采集。
 
 管理员密码用于页面读取和价格修改，采集密钥仅用于签名上传。
+用户名固定为 `admin`。自定义密码时修改 `ADMIN_SECRET_FILE` 指向文件的内容，
+至少 12 字符，文件权限为 400 或 600，保存后重启服务。setup 默认随机生成密码。
 修改 `PORT` 后同时更新 `COST_DASHBOARD_URL`。
 PostgreSQL 服务及数据使用独立的 Compose volume `database`。
 

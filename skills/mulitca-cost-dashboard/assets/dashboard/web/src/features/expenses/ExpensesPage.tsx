@@ -192,6 +192,10 @@ export function aggregateExpenseTrend(rows: ExpenseUsage[], granularity: 'day' |
   return [...groups.values()].sort((left, right) => left.key.localeCompare(right.key));
 }
 
+const priceRateFields = ['inputPerMillion', 'outputPerMillion', 'cacheReadPerMillion', 'cacheWritePerMillion'] as const;
+type PriceRateField = typeof priceRateFields[number];
+type PriceDraft = Omit<ExpensePrice, PriceRateField> & Record<PriceRateField, string | number>;
+
 function newPriceDraft(prefill?: { provider: string; model: string }, effectiveFrom = isoDate()): ExpensePrice {
   return {
     provider: prefill?.provider ?? '', model: prefill?.model ?? '', displayName: prefill?.model ?? '',
@@ -256,7 +260,8 @@ function PriceTable({ settings, initialPrice, onInitialPriceConsumed, onSave, on
   onSaveExchangeRate(cnyPerUsd: number): Promise<{ cnyPerUsd: number }>;
   onSaved(): void;
 }) {
-  const [draft, setDraft] = useState<ExpensePrice | undefined>(initialPrice);
+  const [draft, setDraft] = useState<PriceDraft | undefined>(initialPrice);
+  const priceForm = useRef<HTMLDivElement>(null);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
   const [jsonText, setJsonText] = useState('');
@@ -290,13 +295,30 @@ function PriceTable({ settings, initialPrice, onInitialPriceConsumed, onSave, on
   const update = (key: keyof ExpensePrice, value: string | number) => setDraft((current) => current ? { ...current, [key]: value } : current);
   const save = async () => {
     if (!draft || !settings.isAdmin) return;
+    const invalidRateInput = Array.from(
+      priceForm.current?.querySelectorAll<HTMLInputElement>('input[type="number"]') ?? [],
+    ).find((input) => input.validity.badInput || input.validity.rangeUnderflow || input.validity.rangeOverflow);
+    if (invalidRateInput) {
+      invalidRateInput.reportValidity();
+      return;
+    }
     if (draft.effectiveTo && draft.effectiveTo < draft.effectiveFrom) {
       setError('失效日期不能早于生效日期');
       return;
     }
     setSaving(true);
     setError(undefined);
-    try { await onSave(draft); setDraft(undefined); onSaved(); }
+    try {
+      await onSave({
+        ...draft,
+        inputPerMillion: Number(draft.inputPerMillion),
+        outputPerMillion: Number(draft.outputPerMillion),
+        cacheReadPerMillion: Number(draft.cacheReadPerMillion),
+        cacheWritePerMillion: Number(draft.cacheWritePerMillion),
+      });
+      setDraft(undefined);
+      onSaved();
+    }
     catch (caught) { setError(caught instanceof Error ? caught.message : '价格保存失败'); }
     finally { setSaving(false); }
   };
@@ -345,9 +367,15 @@ function PriceTable({ settings, initialPrice, onInitialPriceConsumed, onSave, on
       {settings.prices.map((price) => <tr key={price.id}><td><strong>{price.displayName}</strong><code>{price.provider} / {price.model}</code></td><td>{price.inputPerMillion}</td><td>{price.outputPerMillion}</td><td>{price.cacheReadPerMillion}</td><td>{price.cacheWritePerMillion}</td><td>{price.currency}<small>{price.currency === 'CNY' ? '按全局汇率' : ''}</small></td><td>{price.effectiveFrom}<small>{price.effectiveTo ? `至 ${price.effectiveTo}` : '当前有效'}</small></td>{settings.isAdmin && <td><button className="table-link" type="button" onClick={() => startEdit(price)}>编辑</button></td>}</tr>)}
     </tbody></table></div>
     {draft && createPortal(<div className="price-editor-backdrop"><div className="price-editor" role="dialog" aria-modal="true" aria-label="价格编辑器"><div className="price-editor-head"><strong>{draft.id ? '编辑价格版本' : '新增价格版本'}</strong><button type="button" onClick={() => setDraft(undefined)} aria-label="关闭"><X size={17} /></button></div>
-      <div className="price-form">
+      <div className="price-form" ref={priceForm}>
         <label>Provider<input value={draft.provider} onChange={(event) => update('provider', event.target.value)} /></label><label>模型标识<input value={draft.model} onChange={(event) => update('model', event.target.value)} /></label><label>显示名<input value={draft.displayName} onChange={(event) => update('displayName', event.target.value)} /></label>
-        {(['inputPerMillion', 'outputPerMillion', 'cacheReadPerMillion', 'cacheWritePerMillion'] as const).map((key, index) => <label key={key}>{['输入 / 1M', '输出 / 1M', '缓存读 / 1M', '缓存写 / 1M'][index]}<input type="number" min="0" step="0.001" value={draft[key]} onChange={(event) => update(key, Number(event.target.value))} /></label>)}
+        {priceRateFields.map((key, index) => <label key={key}>
+          {['输入 / 1M', '输出 / 1M', '缓存读 / 1M', '缓存写 / 1M'][index]}
+          <input type="number" min="0" step="0.001" value={draft[key]}
+            onFocus={(event) => { if (event.currentTarget.value === '0') update(key, ''); }}
+            onChange={(event) => update(key, event.target.value)}
+            onBlur={(event) => { if (event.target.value === '' && !event.target.validity.badInput) update(key, 0); }} />
+        </label>)}
         <label>币种<select value={draft.currency} onChange={(event) => update('currency', event.target.value)}><option>USD</option><option>CNY</option></select></label>
         <label>生效日期<input type="date" value={draft.effectiveFrom} onChange={(event) => update('effectiveFrom', event.target.value)} /></label><label>失效日期<input type="date" value={draft.effectiveTo ?? ''} onChange={(event) => update('effectiveTo', event.target.value)} /></label>
       </div>{error && <div className="expense-warning" role="alert"><TriangleAlert size={15} />{error}</div>}<div className="price-editor-actions"><button type="button" onClick={() => setDraft(undefined)}>取消</button><button className="primary-action" type="button" disabled={saving || !draft.provider || !draft.model || !draft.displayName || Boolean(draft.effectiveTo && draft.effectiveTo < draft.effectiveFrom)} onClick={() => void save()}><Save size={14} />{saving ? '保存中' : '保存'}</button></div>

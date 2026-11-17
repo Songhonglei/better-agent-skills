@@ -11,14 +11,14 @@ const schema = z.object({
   MAX_PAYLOAD_BYTES: z.coerce.number().int().min(1048576).max(104857600).default(67108864),
 });
 
-export function readSecret(path: string): string {
+export function readSecret(path: string, minimumLength = 32): string {
   const absolute = resolve(path);
   const stat = statSync(absolute);
   if (!stat.isFile() || (process.platform !== 'win32' && ![0o400, 0o600].includes(stat.mode & 0o777))) {
     throw new Error('Secret file must be a regular file with mode 400 or 600');
   }
   const secret = readFileSync(absolute, 'utf8').trim();
-  if (secret.length < 32) throw new Error('Secret file must contain at least 32 characters');
+  if (secret.length < minimumLength) throw new Error(`Secret file must contain at least ${minimumLength} characters`);
   return secret;
 }
 
