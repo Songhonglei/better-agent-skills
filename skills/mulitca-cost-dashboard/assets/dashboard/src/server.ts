@@ -7,7 +7,7 @@ async function main() {
   const { db, pool } = createDatabase(config.DATABASE_URL);
   const app = await createApp({
     db,
-    adminSecret: readSecret(config.ADMIN_SECRET_FILE),
+    adminSecret: readSecret(config.ADMIN_SECRET_FILE, 12),
     ingestSecret: readSecret(config.INGEST_SECRET_FILE),
     bodyLimit: config.MAX_PAYLOAD_BYTES,
   });
